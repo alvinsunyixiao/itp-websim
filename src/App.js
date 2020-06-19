@@ -80,46 +80,66 @@ class SimUI extends React.Component {
       tf.abs(c_right.add(c_left)).mul(c_right.sub(c_left)).mul(0.5)
     );
     const rhs = tf.sub(flux.slice([0], [N-2]), flux.slice([1], [N-2])).div(dx);
-    return rhs.pad([[1, 1]]);
+    const rhs_pad = rhs.pad([[1, 1]]);
+    return rhs_pad;
   }
 
-  stepSimluation() {
-    const { dx, concentration_tx } = this.state;
-    const concentration_x = concentration_tx[concentration_tx.length - 1];
+  stepSimulation() {
+    const { dx, concentration_tx, ts, sim_time } = this.state;
     const dt = dx;
-    const t = this.state.ts.slice(-1)[0] + dt;
+    const t = ts[ts.length - 1] + dt;
+    if (!this.state.run || t >= sim_time) {
+      return;
+    }
+    const concentration_x = concentration_tx[concentration_tx.length - 1];
     // RK-4
-    const k1 = this.calcFlux();
-    const k2 = this.calcFlux(k1.mul(0.5*dt));
-    const k3 = this.calcFlux(k2.mul(0.5*dx));
-    const k4 = this.calcFlux(k3.mul(dt));
-    const flux = k1.add(k2.mul(2)).add(k3.mul(2)).add(k4).div(6);
-    const new_concentration_x = flux.mul(dt).add(concentration_x)
+    const k1 = tf.tidy(() => this.calcFlux());
+    const k2 = tf.tidy(() => this.calcFlux(k1.mul(0.5*dt)));
+    const k3 = tf.tidy(() => this.calcFlux(k2.mul(0.5*dx)));
+    const k4 = tf.tidy(() => this.calcFlux(k3.mul(dt)));
+    const flux = tf.tidy(() => k1.add(k2.mul(2)).add(k3.mul(2)).add(k4).div(6));
+    const new_concentration_x = tf.tidy(() => flux.mul(dt).add(concentration_x));
+    // update states
     this.setState({
-      concentration_tx: [...concentration_tx, new_concentration_x],
-      ts: [...this.state.ts, t],
+      concentration_tx: concentration_tx.concat([new_concentration_x]),
+      ts: ts.concat([t]),
       idx: this.state.idx + 1,
     });
+    // release memory
+    k1.dispose();
+    k2.dispose();
+    k3.dispose();
+    k4.dispose();
+    flux.dispose();
+    // request animate new frame
+    requestAnimationFrame(() => this.stepSimulation());
   }
 
   updateInit() {
     if (this.state.num_grids === undefined || this.state.domain_len === undefined) {
       return;
     }
-    const num_grids = parseInt(this.state.num_grids);
-    const domain_len = parseFloat(this.state.domain_len) * 1e-3; // [mm] -> [m]
+    const { num_grids, domain_len } = this.state;
     const grid_x = tf.linspace(0, domain_len, num_grids);
     const concentration_x = tf.exp(
       grid_x.sub(0.1 * domain_len).square().neg().div(Math.pow(0.02 * domain_len, 2)));
     grid_x.array().then(arr => this.setState({x: arr}));
     concentration_x.array().then(arr => this.setState({y: arr}));
     this.setState({
+      ts: [0],
+      idx: 0,
+      run: false,
       concentration_tx: [concentration_x],
       grid_x: grid_x,
       L: domain_len,
       N: num_grids,
       dx: domain_len / (num_grids - 1),
     });
+  }
+
+  resetHandler() {
+    this.state.concentration_tx.forEach(c => c.dispose());
+    this.updateInit();
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -130,19 +150,28 @@ class SimUI extends React.Component {
     if (prevState.idx !== this.state.idx) {
       this.state.concentration_tx[this.state.idx].array().then(arr => this.setState({y: arr}));
     }
+    if (prevState.run !== this.state.run && this.state.run) {
+      this.stepSimulation();
+    }
   }
 
   render() {
     return (
       <div>
-        <Button className="m-3" onClick={() => this.stepSimluation()}>Start</Button>
+        <Button className="m-3 btn-success" onClick={() => this.setState({run: true})}>
+          Start
+        </Button>
+        <Button className="m-3 btn-warning" onClick={() => this.setState({run: false})}>
+          Pause
+        </Button>
+        <Button className="m-3 btn-danger" onClick={() => this.resetHandler()}>Reset</Button>
         <Row>
           <Col>
             <InputNumber
               hint="Simulation Time"
               placeholder="[s]"
               name="sim_time"
-              update={(name, value) => this.setState({[name]: value})}
+              update={(name, value) => this.setState({[name]: parseFloat(value)})}
             />
           </Col>
           <Col>
@@ -150,7 +179,7 @@ class SimUI extends React.Component {
               hint="# Grid Points"
               placeholder="[s]"
               name="num_grids"
-              update={(name, value) => this.setState({[name]: value})}
+              update={(name, value) => this.setState({[name]: parseInt(value)})}
             />
           </Col>
           <Col>
@@ -158,7 +187,8 @@ class SimUI extends React.Component {
               hint="Domain Length"
               placeholder="[mm]"
               name="domain_len"
-              update={(name, value) => this.setState({[name]: value})}
+              //                                                                [mm] -> [m]
+              update={(name, value) => this.setState({[name]: parseFloat(value) * 1e-3})}
             />
           </Col>
         </Row>
