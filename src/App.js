@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './App.css';
 // bootstrap stuff
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -15,7 +15,6 @@ import * as tf from '@tensorflow/tfjs'
 import Plot from 'react-plotly.js'
 // cookies
 import { Cookies } from 'react-cookie'
-
 const cookies = new Cookies();
 
 const default_input = {
@@ -63,83 +62,47 @@ class InputNumber extends React.Component {
 }
 
 class SimUI extends React.Component {
-  state = {
-    x: [],
-    y: [],
-    ts: [0],
-    idx: 0,
-  }
-
-  calcFlux(extra=0) {
-    const { N, dx, concentration_tx } = this.state;
-    const concentration_x = concentration_tx[concentration_tx.length - 1].add(extra);
-    const c_right = concentration_x.slice([1], [N-1]);
-    const c_left = concentration_x.slice([0], [N-1]);
-    const flux = tf.sub(
-      tf.add(c_right.square(), c_left.square()).mul(0.5),
-      tf.abs(c_right.add(c_left)).mul(c_right.sub(c_left)).mul(0.5)
-    );
-    const rhs = tf.sub(flux.slice([0], [N-2]), flux.slice([1], [N-2])).div(dx);
-    const rhs_pad = rhs.pad([[1, 1]]);
-    return rhs_pad;
+  constructor(props) {
+    super(props);
+    this.state = {
+      x: [],
+      y: [],
+    };
   }
 
   stepSimulation() {
-    const { dx, concentration_tx, ts, sim_time } = this.state;
-    const dt = dx;
-    const t = ts[ts.length - 1] + dt;
-    if (!this.state.run || t >= sim_time) {
+    const { spresso } = this.state;
+    if (!this.state.run) {
       return;
     }
-    const concentration_x = concentration_tx[concentration_tx.length - 1];
-    // RK-4
-    const k1 = tf.tidy(() => this.calcFlux());
-    const k2 = tf.tidy(() => this.calcFlux(k1.mul(0.5*dt)));
-    const k3 = tf.tidy(() => this.calcFlux(k2.mul(0.5*dx)));
-    const k4 = tf.tidy(() => this.calcFlux(k3.mul(dt)));
-    const flux = tf.tidy(() => k1.add(k2.mul(2)).add(k3.mul(2)).add(k4).div(6));
-    const new_concentration_x = tf.tidy(() => flux.mul(dt).add(concentration_x));
-    // update states
+    for (let i = 0; i < 30; ++i) {
+      spresso.simulate_step();
+    }
+    const t = spresso.get_current_time();
     this.setState({
-      concentration_tx: concentration_tx.concat([new_concentration_x]),
-      ts: ts.concat([t]),
-      idx: this.state.idx + 1,
+      t: t,
+      y: spresso.get_current_concentration_x(),
     });
-    // release memory
-    k1.dispose();
-    k2.dispose();
-    k3.dispose();
-    k4.dispose();
-    flux.dispose();
-    // request animate new frame
-    requestAnimationFrame(() => this.stepSimulation());
+    if (t <= this.state.sim_time) {
+      requestAnimationFrame(() => this.stepSimulation());
+    }
   }
 
   updateInit() {
-    if (this.state.num_grids === undefined || this.state.domain_len === undefined) {
-      return;
-    }
     const { num_grids, domain_len } = this.state;
-    const grid_x = tf.linspace(0, domain_len, num_grids);
-    const concentration_x = tf.exp(
-      grid_x.sub(0.1 * domain_len).square().neg().div(Math.pow(0.02 * domain_len, 2)));
-    grid_x.array().then(arr => this.setState({x: arr}));
-    concentration_x.array().then(arr => this.setState({y: arr}));
-    this.setState({
-      ts: [0],
-      idx: 0,
+    if (!num_grids || !domain_len) {
+      return ;
+    }
+    window.pyodide.runPythonAsync(`
+      spresso = SpressoBurger(${num_grids}, ${domain_len})
+      spresso
+    `).then(spresso => this.setState({
+      x: spresso.grid_x,
+      y: spresso.get_current_concentration_x(),
       run: false,
-      concentration_tx: [concentration_x],
-      grid_x: grid_x,
-      L: domain_len,
-      N: num_grids,
-      dx: domain_len / (num_grids - 1),
-    });
-  }
-
-  resetHandler() {
-    this.state.concentration_tx.forEach(c => c.dispose());
-    this.updateInit();
+      t: 0,
+      spresso: spresso,
+    }));
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -156,15 +119,22 @@ class SimUI extends React.Component {
   }
 
   render() {
+    const disabled = this.state.spresso ? false : true;
     return (
       <div>
-        <Button className="m-3 btn-success" onClick={() => this.setState({run: true})}>
-          Start
-        </Button>
-        <Button className="m-3 btn-warning" onClick={() => this.setState({run: false})}>
-          Pause
-        </Button>
-        <Button className="m-3 btn-danger" onClick={() => this.resetHandler()}>Reset</Button>
+        <Button
+          className="m-3 btn-success"
+          onClick={() => this.setState({run: true})}
+          disabled={ disabled }
+        >Start</Button>
+        <Button
+          className="m-3 btn-warning"
+          onClick={() => this.setState({run: false})}
+        >Pause</Button>
+        <Button
+          className="m-3 btn-danger"
+          onClick={() => this.updateInit()}
+        >Reset</Button>
         <Row>
           <Col>
             <InputNumber
@@ -203,7 +173,7 @@ class SimUI extends React.Component {
               }
             ]}
             layout={{
-              title: { text: "Concentration Plot @ " + this.state.ts[this.state.idx] + "s" },
+              title: { text: "Concentration Plot @ " + this.state.t + "s" },
               xaxis: { title: { text: "Domain [m]" } },
               yaxis: {
                 title: { text: "Concentration [unit?]" },
@@ -217,13 +187,23 @@ class SimUI extends React.Component {
   }
 }
 
-const App = () => (
-  <Container>
-    <Jumbotron className="p-4">
-      <h1 className="header">Welcome To Spresso Simulator</h1>
-    </Jumbotron>
-    <SimUI />
-  </Container>
-);
+function App() {
+  const [pyodideReady, setPyodideReady] = useState(false);
+  const ui = pyodideReady ? <SimUI /> : "Loading";
+  window.languagePluginLoader
+    .then(() => window.pyodide.loadPackage(['numpy']))
+    .then(() => fetch('spresso_burger.py'))
+    .then(res => res.text())
+    .then(pydef => window.pyodide.runPythonAsync(pydef))
+    .then(() => setPyodideReady(true));
+  return (
+    <Container>
+      <Jumbotron className="p-4">
+        <h1 className="header">Welcome To Spresso Simulator</h1>
+      </Jumbotron>
+      { ui }
+    </Container>
+  );
+}
 
 export default App;
