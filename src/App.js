@@ -19,9 +19,10 @@ import { Cookies } from 'react-cookie'
 const cookies = new Cookies();
 
 const default_input = {
-  sim_time:   0.05,
-  num_grids:  250,
-  domain_len: 10,
+  sim_time:       0.05,
+  num_grids:      250,
+  domain_len:     10,
+  animation_rate: 30,
 };
 
 class InputNumber extends React.Component {
@@ -70,9 +71,8 @@ class SimUI extends React.Component {
     idx: 0,
   }
 
-  calcFlux(extra=0) {
-    const { N, dx, concentration_tx } = this.state;
-    const concentration_x = concentration_tx[concentration_tx.length - 1].add(extra);
+  calcFlux(concentration_x) {
+    const { N, dx } = this.state;
     const c_right = concentration_x.slice([1], [N-1]);
     const c_left = concentration_x.slice([0], [N-1]);
     const flux = tf.sub(
@@ -84,42 +84,58 @@ class SimUI extends React.Component {
     return rhs_pad;
   }
 
-  stepSimulation() {
-    const { dx, concentration_tx, ts, sim_time } = this.state;
-    const dt = dx;
-    const t = ts[ts.length - 1] + dt;
-    if (!this.state.run || t >= sim_time) {
+  simulateStep() {
+    if (!this.state.run) {
       return;
     }
-    const concentration_x = concentration_tx[concentration_tx.length - 1];
-    // RK-4
-    const k1 = tf.tidy(() => this.calcFlux());
-    const k2 = tf.tidy(() => this.calcFlux(k1.mul(0.5*dt)));
-    const k3 = tf.tidy(() => this.calcFlux(k2.mul(0.5*dx)));
-    const k4 = tf.tidy(() => this.calcFlux(k3.mul(dt)));
-    const flux = tf.tidy(() => k1.add(k2.mul(2)).add(k3.mul(2)).add(k4).div(6));
-    const new_concentration_x = tf.tidy(() => flux.mul(dt).add(concentration_x));
+    const { dx, concentration_tx, ts, sim_time, animation_rate } = this.state;
+    const dt = dx;
+    let concentration_x = concentration_tx[concentration_tx.length - 1];
+    let t = ts[ts.length - 1];
+    let new_t = [];
+    let new_concentration_tx = []
+    for (let i = 0; i < animation_rate; ++i) {
+      if (t > sim_time) {
+        this.setState({
+          concentration_tx: concentration_tx.concat(new_concentration_tx),
+          ts: ts.concat(new_t),
+          idx: this.state.idx + i,
+        });
+        return;
+      }
+      // RK-4
+      const k1 = tf.tidy(() => this.calcFlux(concentration_x));
+      const k2 = tf.tidy(() => this.calcFlux(concentration_x.add(k1.mul(0.5*dt))));
+      const k3 = tf.tidy(() => this.calcFlux(concentration_x.add(k2.mul(0.5*dx))));
+      const k4 = tf.tidy(() => this.calcFlux(concentration_x.add(k3.mul(dt))));
+      const flux = tf.tidy(() => k1.add(k2.mul(2)).add(k3.mul(2)).add(k4).div(6));
+      const new_concentration_x = tf.tidy(() => flux.mul(dt).add(concentration_x));
+      concentration_x = new_concentration_x;
+      t += dt;
+      new_concentration_tx.push(concentration_x);
+      new_t.push(t);
+      // release memory
+      k1.dispose();
+      k2.dispose();
+      k3.dispose();
+      k4.dispose();
+      flux.dispose();
+    }
     // update states
     this.setState({
-      concentration_tx: concentration_tx.concat([new_concentration_x]),
-      ts: ts.concat([t]),
-      idx: this.state.idx + 1,
+      concentration_tx: concentration_tx.concat(new_concentration_tx),
+      ts: ts.concat(new_t),
+      idx: this.state.idx + animation_rate,
     });
-    // release memory
-    k1.dispose();
-    k2.dispose();
-    k3.dispose();
-    k4.dispose();
-    flux.dispose();
     // request animate new frame
-    requestAnimationFrame(() => this.stepSimulation());
+    requestAnimationFrame(() => this.simulateStep());
   }
 
   updateInit() {
-    if (this.state.num_grids === undefined || this.state.domain_len === undefined) {
+    const { num_grids, domain_len } = this.state;
+    if (!num_grids || !domain_len) {
       return;
     }
-    const { num_grids, domain_len } = this.state;
     const grid_x = tf.linspace(0, domain_len, num_grids);
     const concentration_x = tf.exp(
       grid_x.sub(0.1 * domain_len).square().neg().div(Math.pow(0.02 * domain_len, 2)));
@@ -151,7 +167,7 @@ class SimUI extends React.Component {
       this.state.concentration_tx[this.state.idx].array().then(arr => this.setState({y: arr}));
     }
     if (prevState.run !== this.state.run && this.state.run) {
-      this.stepSimulation();
+      this.simulateStep();
     }
   }
 
@@ -189,6 +205,14 @@ class SimUI extends React.Component {
               name="domain_len"
               //                                                                [mm] -> [m]
               update={(name, value) => this.setState({[name]: parseFloat(value) * 1e-3})}
+            />
+          </Col>
+          <Col>
+            <InputNumber
+              hint="Animation Rate"
+              placeholder="[steps/update]"
+              name="animation_rate"
+              update={(name, value) => this.setState({[name]: parseInt(value)})}
             />
           </Col>
         </Row>
