@@ -10,7 +10,10 @@ if (tf.ENV.getBool('HAS_WEBGL'))
   tf.setBackend('webgl');
 else
   tf.setBackend('cpu');
-tf.ready().then(() => {ready = true;});
+tf.ready().then(() => {
+  console.log("Tensorflow using " + tf.getBackend() + " backend.");
+  ready = true;
+});
 
 async function requestUpdate(updateX=false) {
   if (!spresso) {
