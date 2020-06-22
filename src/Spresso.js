@@ -55,6 +55,10 @@ export class spressoBurger {
     return rhs_pad;
   }
 
+  getCurrentStep() {
+    return this.time_t.length - 1;
+  }
+
   getCurrentTime() {
     return this.time_t[this.time_t.length - 1];
   }

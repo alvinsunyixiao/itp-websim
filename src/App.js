@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './App.css';
 // bootstrap stuff
-import 'bootstrap/dist/css/bootstrap.min.css';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
@@ -11,28 +10,26 @@ import InputGroup from 'react-bootstrap/InputGroup';
 import Jumbotron from 'react-bootstrap/Jumbotron';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger'
 import Tooltip from 'react-bootstrap/Tooltip'
-// tensorflow stuff
-import * as tf from '@tensorflow/tfjs'
 // plotly
 import Plot from 'react-plotly.js'
 // cookies
 import { Cookies } from 'react-cookie'
 
 import download from 'downloadjs'
-import { spressoBurger, spressoBurgerInput } from './Spresso.js'
+import { spressoBurgerInput } from './Spresso.js'
 
 const cookies = new Cookies();
 
 const default_input = {
   // simulation related
-  sim_time:         0.1,
-  animate_rate:     30,
+  sim_time:         0.5,
+  animate_rate:     100,
   // data related
   num_grids:        250,
   domain_len:       50,
   injection_loc:    15,
   injection_width:  10,
-  injection_amount: 3,
+  injection_amount: .5,
   interface_width:  1,
 };
 
@@ -111,73 +108,75 @@ class SimUI extends React.Component {
     this.state = {
       x: undefined,
       y: undefined,
+      t: undefined,
       run: false,
     }
     this.spresso = undefined;
+    this.worker = new Worker('./worker.js', { type: 'module' });
+    this.worker.onmessage = (e) => this.workerHandler(e);
   }
 
-  simulateSteps() {
-    if (!this.state.run) {
-      return ;
-    }
-    let should_continue = true;
-    for (let i = 0; i < this.spresso.input.animate_rate && should_continue; ++i) {
-      should_continue = this.spresso.simulateStep();
-    }
-    this.spresso.getCurrentConcentration().data().then(data => this.setState({y: data}));
-    // request animate new frame
-    if (should_continue) {
-      requestAnimationFrame(() => this.simulateSteps());
-    }
-    else {
-      this.setState({run: false});
+  workerHandler(e) {
+    switch (e.data.msg) {
+      case 'update':
+        this.setState(e.data.plot);
+        break;
+      case 'finished':
+        this.setState({running: false});
+        break;
+      default:
+        console.log('Unrecognized message: ' + e.data.msg);
     }
   }
 
-  resetHandler() {
+  inputValid() {
     const { sim_time, num_grids, domain_len, animate_rate,
             injection_loc, injection_width, injection_amount, interface_width } = this.state;
-    if (!sim_time || !num_grids || !domain_len || !animate_rate ||
-        !injection_loc || !injection_width ||
-        !injection_amount || !interface_width) {
+    // TODO(alvin): actually perform validation here
+    return (
+      sim_time && num_grids && domain_len && animate_rate &&
+      injection_loc && injection_width &&
+      injection_amount && interface_width
+    );
+  }
+
+  resetHandler(update=false) {
+    if (!this.inputValid()) {
       return;
     }
-    if (this.spresso) {
-      this.spresso.reset();
-    }
+    const { sim_time, num_grids, domain_len, animate_rate,
+            injection_loc, injection_width, injection_amount, interface_width } = this.state;
 
-    this.setState({run: false});
-    const spresso_input = new spressoBurgerInput(sim_time, animate_rate, num_grids, domain_len,
+    const spressoInput = new spressoBurgerInput(
+      sim_time, animate_rate, num_grids, domain_len,
       injection_loc, injection_width, injection_amount, interface_width);
-    this.spresso = new spressoBurger(spresso_input);
-    this.spresso.grid_x.data().then(data => this.setState({x: data}));
-    this.spresso.getCurrentConcentration().data().then(data => this.setState({y: data}));
+    if (update) {
+      this.worker.postMessage({msg: 'update input', input: spressoInput});
+    }
+    else {
+      this.worker.postMessage({msg: 'reset', input: spressoInput});
+    }
   }
 
   componentDidUpdate(prevProps, prevState) {
-    if (this.spresso) {
-      if (prevState.sim_time !== this.state.sim_time) {
-        this.spresso.input.sim_time = this.state.sim_time;
-      }
-      if (prevState.animate_rate !== this.state.animate_rate) {
-        this.spresso.input.animate_rate = this.state.animate_rate;
-      }
-    }
-    if (prevState.num_grids !== this.state.num_grids ||
+    if (prevState.sim_time !== this.state.sim_time ||
+        prevState.animate_rate !== this.state.animate_rate ||
+        prevState.num_grids !== this.state.num_grids ||
         prevState.domain_len !== this.state.domain_len ||
         prevState.injection_loc !== this.state.injection_loc ||
         prevState.injection_width !== this.state.injection_width ||
         prevState.injection_amount !== this.state.injection_amount ||
         prevState.interface_width !== this.state.interface_width) {
-      this.resetHandler();
+      this.resetHandler(true);
     }
-    if (!prevState.run && this.state.run) {
-      this.simulateSteps();
+
+    if (prevState.t !== this.state.t) {
+      this.worker.postMessage({msg: 'updated'});
     }
   }
 
   render() {
-    const plot = (this.state.x && this.state.y) ?
+    const plot = (this.state.t !== undefined) ?
       (
         <Plot
           className="mt-3"
@@ -188,26 +187,32 @@ class SimUI extends React.Component {
             }
           ]}
           layout={{
-            title: { text: "Concentration Plot @ " + this.spresso.getCurrentTime() + "s" },
-            xaxis: { title: { text: "Domain [m]" } },
+            title: { text: 'Concentration Plot @ ' + this.state.t + 's' },
+            xaxis: { title: { text: 'Domain [m]' } },
             yaxis: {
-              title: { text: "Concentration [mole / m^3]" },
+              title: { text: 'Concentration [mole / m^3]' },
             }
           }}
-          divId="concentration_plot"
+          divId='concentration_plot'
         />
       )
       :
-      "Loading";
-    const start_pause = this.state.run ?
+      'Loading';
+    const start_pause = this.state.running ?
       (
-        <Button className="m-3 btn-warning" onClick={() => this.setState({run: false})}>
+        <Button className="m-3 btn-warning" onClick={() => {
+          this.setState({running: false});
+          this.worker.postMessage({msg: 'pause'});
+        }}>
           Pause
         </Button>
       )
       :
       (
-        <Button className="m-3 btn-success" onClick={() => this.setState({run: true})}>
+        <Button className="m-3 btn-success" onClick={() => {
+          this.setState({running: true});
+          this.worker.postMessage({msg: 'start'});
+        }}>
           Start
         </Button>
       );
@@ -306,14 +311,14 @@ class SimUI extends React.Component {
           <Button className="m-3 btn-danger" onClick={() => this.resetHandler()}>Reset</Button>
           <Button className="m-3 btn-info" onClick={() => {
             const content = JSON.stringify(this.spresso.input, null, 2);
-            download(content, "config.json", "application/json");
+            download(content, 'config.json', 'application/json');
           }}>Save Configurations</Button>
           <Button className="m-3 btn-info" onClick={() => {
             const handler = async function(spresso) {
               const concentration_tx = spresso.getAllConcentration();
               const data = await concentration_tx.data();
               const blob = new Blob([data]);
-              download(blob, "data.bin");
+              download(blob, 'data.bin');
             }
             handler(this.spresso);
           }}>
@@ -331,14 +336,6 @@ class SimUI extends React.Component {
 }
 
 const App = function() {
-  const [appReady, setAppReady] = useState(false);
-  if (tf.ENV.getBool('HAS_WEBGL'))
-    tf.setBackend('webgl');
-  else
-    tf.setBackend('cpu');
-  tf.ready().then(() => setAppReady(true));
-  if (!appReady)
-    return "Loading"
   return (
     <Container>
       <Jumbotron className="p-4">
