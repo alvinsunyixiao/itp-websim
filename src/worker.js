@@ -5,7 +5,7 @@ import { setWasmPath } from '@tensorflow/tfjs-backend-wasm';
 let spresso = undefined;
 let running = false;
 let ready = false;
-let updated = false;
+let updated = true;
 
 setWasmPath('/tfjs-backend-wasm.wasm');
 tf.setBackend('wasm').then(() => {
@@ -17,6 +17,7 @@ async function requestUpdate(updateX=false) {
   if (!spresso) {
     return;
   }
+  updated = false;
   const plot = {
     t: spresso.getCurrentTime(),
     x: await spresso.grid_x.data(),
@@ -53,17 +54,16 @@ async function simulate() {
   for (let i = 0; i < spresso.input.animate_rate && shouldContinue; ++i) {
     shouldContinue = spresso.simulateStep();
   }
-  if (updated) {
-    updated = false;
-    await requestUpdate();
-  }
   if (shouldContinue) {
     setTimeout(simulate, 0);
   }
   else {
+    running = false;
     await requestUpdate();
     postMessage({msg: 'finished'});
-    running = false;
+  }
+  if (updated) {
+    await requestUpdate();
   }
 }
 
@@ -80,6 +80,7 @@ onmessage = function(e) {
       updateInput(e.data.input);
       break;
     case 'start':
+      updated = true;
       running = true;
       simulate();
       break;
