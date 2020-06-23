@@ -7,7 +7,6 @@ import Button from 'react-bootstrap/Button';
 import Container from 'react-bootstrap/Container';
 import Form from 'react-bootstrap/Form';
 import Jumbotron from 'react-bootstrap/Jumbotron';
-import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 // plotly
 import Plot from 'react-plotly.js';
 // download file from frontend
