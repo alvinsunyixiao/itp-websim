@@ -6,19 +6,15 @@ import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
 import Container from 'react-bootstrap/Container';
 import Form from 'react-bootstrap/Form';
-import InputGroup from 'react-bootstrap/InputGroup';
 import Jumbotron from 'react-bootstrap/Jumbotron';
-import OverlayTrigger from 'react-bootstrap/OverlayTrigger'
-import Tooltip from 'react-bootstrap/Tooltip'
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 // plotly
-import Plot from 'react-plotly.js'
-// cookies
-import { Cookies } from 'react-cookie'
+import Plot from 'react-plotly.js';
+// download file from frontend
+import download from 'downloadjs';
 
-import download from 'downloadjs'
-import { spressoBurgerInput } from './Spresso.js'
-
-const cookies = new Cookies();
+import { spressoBurgerInput } from './Spresso';
+import { InputInt, InputFloat } from './input';
 
 const default_input = {
   // simulation related
@@ -32,75 +28,6 @@ const default_input = {
   injection_amount: 1,
   interface_width:  1,
 };
-
-class Input extends React.Component {
-  constructor(props) {
-    super(props);
-    const { name } = this.props;
-    let value = cookies.get(name);
-    if (value === undefined) {
-      value = default_input[name];
-      cookies.set(name, value);
-    }
-    if (this.props.update)
-      this.props.update(name, this.formatValue(value));
-  }
-
-  formatValue(value) {
-    return value;
-  }
-
-  onChange(event) {
-    cookies.set(event.target.name, event.target.value);
-    const value = this.formatValue(event.target.value);
-    if (this.props.update) {
-      this.props.update(event.target.name, value);
-    }
-  }
-}
-
-class InputNumber extends Input {
-  render() {
-    const { hint, placeholder, name } = this.props;
-    return (
-      <InputGroup size="sm">
-        <InputGroup.Prepend>
-          <OverlayTrigger
-            placement="bottom"
-            delay={{ show: 500 }}
-            overlay={
-              <Tooltip>
-                { this.props.children }
-              </Tooltip>
-            }
-          >
-            <InputGroup.Text>{hint}</InputGroup.Text>
-          </OverlayTrigger>
-        </InputGroup.Prepend>
-        <Form.Control
-          name={ name }
-          placeholder={ placeholder }
-          type="number"
-          value={ cookies.get(name) }
-          onChange={(event) => this.onChange(event)}
-          readOnly={ this.props.readOnly }
-        />
-      </InputGroup>
-    )
-  }
-}
-
-class InputInt extends InputNumber {
-  formatValue(value) {
-    return parseInt(value);
-  }
-}
-
-class InputFloat extends InputNumber {
-  formatValue(value) {
-    return parseFloat(value);
-  }
-}
 
 class SimUI extends React.Component {
   constructor(props) {
@@ -181,45 +108,39 @@ class SimUI extends React.Component {
 
   render() {
     const plot = (this.state.t !== undefined) ?
-      (
-        <Plot
-          className="mt-3"
-          data={[
-            {
-              x: this.state.x,
-              y: this.state.y,
-            }
-          ]}
-          layout={{
-            title: { text: 'Concentration Plot @ ' + this.state.t + 's' },
-            xaxis: { title: { text: 'Domain [m]' } },
-            yaxis: {
-              title: { text: 'Concentration [mole / m^3]' },
-            }
-          }}
-          divId='concentration_plot'
-        />
-      )
+      <Plot
+        className="mt-3"
+        data={[
+          {
+            x: this.state.x,
+            y: this.state.y,
+          }
+        ]}
+        layout={{
+          title: { text: 'Concentration Plot @ ' + this.state.t + 's' },
+          xaxis: { title: { text: 'Domain [m]' } },
+          yaxis: {
+            title: { text: 'Concentration [mole / m^3]' },
+          }
+        }}
+        divId='concentration_plot'
+      />
       :
       'Loading';
     const start_pause = this.state.running ?
-      (
-        <Button className="m-3 btn-warning" onClick={() => {
-          this.setState({running: false});
-          this.worker.postMessage({msg: 'pause'});
-        }}>
-          Pause
-        </Button>
-      )
+      <Button className="m-3 btn-warning" onClick={() => {
+        this.setState({running: false});
+        this.worker.postMessage({msg: 'pause'});
+      }}>
+        Pause
+      </Button>
       :
-      (
-        <Button className="m-3 btn-success" onClick={() => {
-          this.setState({running: true});
-          this.worker.postMessage({msg: 'start'});
-        }}>
-          Start
-        </Button>
-      );
+      <Button className="m-3 btn-success" onClick={() => {
+        this.setState({running: true});
+        this.worker.postMessage({msg: 'start'});
+      }}>
+        Start
+      </Button>
     return (
       <div>
         <Form.Row className="mb-3">
@@ -229,6 +150,7 @@ class SimUI extends React.Component {
               placeholder="[s]"
               name="sim_time"
               update={(name, value) => this.setState({[name]: value})}
+              defaultValue={ default_input.sim_time }
             >
               Physical simulated time in [s]
             </InputFloat>
@@ -239,11 +161,12 @@ class SimUI extends React.Component {
               placeholder="[steps/update]"
               name="animate_rate"
               update={(name, value) => this.setState({[name]: value})}
+              defaultValue={ default_input.animate_rate }
             >
               Update the animated graph once every this many steps of simulation.<br/>
               <strong>Note</strong>: lower this value to obtain smoother animation.<br/>
               <strong>Warning</strong>: extremely small animation rate can cause the simulation
-                                        to slow down dramtically.
+                                        to slow down dramatically.
             </InputInt>
           </Col>
           <Col>
@@ -252,6 +175,7 @@ class SimUI extends React.Component {
               placeholder="[s]"
               name="num_grids"
               update={(name, value) => this.setState({[name]: value})}
+              defaultValue={ default_input.num_grids }
             >
               Number of discrete grid points in the spatial domain.
             </InputInt>
@@ -263,6 +187,7 @@ class SimUI extends React.Component {
               name="domain_len"
               //                                              [mm] -> [m]
               update={(name, value) => this.setState({[name]: value * 1e-3})}
+              defaultValue={ default_input.domain_len }
             >
               Domain length in [mm].
             </InputFloat>
@@ -275,6 +200,7 @@ class SimUI extends React.Component {
               placeholder="[mm]"
               name="injection_loc"
               update={(name, value) => this.setState({[name]: value * 1e-3})}
+              defaultValue={ default_input.injection_loc }
             >
               Injection Location in [mm].
             </InputFloat>
@@ -285,6 +211,7 @@ class SimUI extends React.Component {
               placeholder="[mm]"
               name="injection_width"
               update={(name, value) => this.setState({[name]: value * 1e-3})}
+              defaultValue={ default_input.injection_width }
             >
               Injection Width in [mm].
             </InputFloat>
@@ -295,6 +222,7 @@ class SimUI extends React.Component {
               placeholder="[milli moles]"
               name="injection_amount"
               update={(name, value) => this.setState({[name]: value * 1e-3})}
+              defaultValue={ default_input.injection_amount }
             >
               Amount of injected substance in [milli moles].
             </InputFloat>
@@ -305,6 +233,7 @@ class SimUI extends React.Component {
               placeholder="[mm]"
               name="interface_width"
               update={(name, value) => this.setState({[name]: value * 1e-3})}
+              defaultValue={ default_input.interface_width }
               readOnly
             >
               Interface width in [mm].
