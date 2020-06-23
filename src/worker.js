@@ -1,16 +1,14 @@
-import { spressoBurger } from './Spresso'
-import * as tf from '@tensorflow/tfjs'
+import { spressoBurger } from './Spresso';
+import * as tf from '@tensorflow/tfjs';
+import { setWasmPath } from '@tensorflow/tfjs-backend-wasm';
 
 let spresso = undefined;
 let running = false;
 let ready = false;
 let updated = false;
 
-if (tf.ENV.getBool('HAS_WEBGL'))
-  tf.setBackend('webgl');
-else
-  tf.setBackend('cpu');
-tf.ready().then(() => {
+setWasmPath('/tfjs-backend-wasm.wasm');
+tf.setBackend('wasm').then(() => {
   console.log("Tensorflow using " + tf.getBackend() + " backend.");
   ready = true;
 });
@@ -70,7 +68,10 @@ async function simulate() {
 }
 
 onmessage = function(e) {
-  while (!ready);
+  if (!ready) {
+    setTimeout(() => onmessage(e), 100);
+    return;
+  }
   switch (e.data.msg) {
     case 'reset':
       reset(e.data.input);
@@ -87,6 +88,9 @@ onmessage = function(e) {
       break;
     case 'updated':
       updated = true;
+      break;
+    case 'config':
+      postMessage({msg: 'config', config: spresso.input});
       break;
     default:
       console.log('Unrecognized message: ' + e.data.msg);

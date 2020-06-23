@@ -22,14 +22,14 @@ const cookies = new Cookies();
 
 const default_input = {
   // simulation related
-  sim_time:         0.5,
-  animate_rate:     100,
+  sim_time:         0.3,
+  animate_rate:     50,
   // data related
   num_grids:        250,
   domain_len:       50,
   injection_loc:    15,
   injection_width:  10,
-  injection_amount: .5,
+  injection_amount: 1,
   interface_width:  1,
 };
 
@@ -66,7 +66,7 @@ class InputNumber extends Input {
       <InputGroup size="sm">
         <InputGroup.Prepend>
           <OverlayTrigger
-            placement="top"
+            placement="bottom"
             delay={{ show: 500 }}
             overlay={
               <Tooltip>
@@ -123,6 +123,10 @@ class SimUI extends React.Component {
         break;
       case 'finished':
         this.setState({running: false});
+        break;
+      case 'config':
+        const content = JSON.stringify(e.data.config, null, 2);
+        download(content, 'config.json', 'application/json');
         break;
       default:
         console.log('Unrecognized message: ' + e.data.msg);
@@ -237,8 +241,9 @@ class SimUI extends React.Component {
               update={(name, value) => this.setState({[name]: value})}
             >
               Update the animated graph once every this many steps of simulation.<br/>
-              <strong>Note</strong>: lower this value to obtain smoother animation but
-                                     slower simulation.
+              <strong>Note</strong>: lower this value to obtain smoother animation.<br/>
+              <strong>Warning</strong>: extremely small animation rate can cause the simulation
+                                        to slow down dramtically.
             </InputInt>
           </Col>
           <Col>
@@ -309,21 +314,9 @@ class SimUI extends React.Component {
         <Row>
           { start_pause }
           <Button className="m-3 btn-danger" onClick={() => this.resetHandler()}>Reset</Button>
-          <Button className="m-3 btn-info" onClick={() => {
-            const content = JSON.stringify(this.spresso.input, null, 2);
-            download(content, 'config.json', 'application/json');
-          }}>Save Configurations</Button>
-          <Button className="m-3 btn-info" onClick={() => {
-            const handler = async function(spresso) {
-              const concentration_tx = spresso.getAllConcentration();
-              const data = await concentration_tx.data();
-              const blob = new Blob([data]);
-              download(blob, 'data.bin');
-            }
-            handler(this.spresso);
-          }}>
-            Save Data
-          </Button>
+          <Button className="m-3 btn-info" onClick={() =>
+            this.worker.postMessage({msg: "config"})
+          }>Save Configurations</Button>
         </Row>
         <Row>
         </Row>

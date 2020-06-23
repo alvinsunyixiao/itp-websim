@@ -1,4 +1,5 @@
-import * as tf from '@tensorflow/tfjs'
+import * as tf from '@tensorflow/tfjs';
+import { range, chain } from 'mathjs';
 
 /*
  * sim_time:      physical time in [s]
@@ -27,12 +28,15 @@ export class spressoBurger {
     this.dx = input.domain_len / (input.num_grids - 1);
     this.dt = this.dx
     this.step = 0;
-    this.grid_x = tf.linspace(0, input.domain_len, input.num_grids);
+    const grid_x_arr = range(0, input.domain_len, this.dx, true);
+    this.grid_x = tf.tensor1d(grid_x_arr.toArray());
     this.time_t = [0];
     this.concentration_tx = [tf.tidy(() => {
       const { injection_loc, injection_width, injection_amount, interface_width } = this.input;
-      const erf_l = this.grid_x.add(-injection_loc+injection_width/2.).div(interface_width).erf();
-      const erf_r = this.grid_x.add(-injection_loc-injection_width/2.).div(interface_width).erf();
+      const erf_l = tf.tensor1d(chain(grid_x_arr)
+        .add(-injection_loc+injection_width/2.).divide(interface_width).erf().done().toArray());
+      const erf_r = tf.tensor1d(chain(grid_x_arr)
+        .add(-injection_loc-injection_width/2.).divide(interface_width).erf().done().toArray());
       const c_norm = tf.sub(erf_l, erf_r).mul(0.5);
       const c_norm_integral = c_norm.sum().mul(this.dx);
       const c0 = tf.div(injection_amount, c_norm_integral);
