@@ -13,25 +13,27 @@ import Plot from 'react-plotly.js';
 import download from 'downloadjs';
 
 import { SpressoInput } from './Spresso';
-import { InputInt, InputFloat } from './input';
+import { InputInt, InputFloat } from './Input';
+
+const VERSION = 'spresso_2species';
 
 const default_input = {
   // simulation related
-  sim_time:         0.3,
-  animate_rate:     50,
+  sim_time:         0.03,
+  animate_rate:     40,
   // data related
   num_grids:        250,
   domain_len:       50,
   species: [
     {
-      injection_loc:    4,
+      injection_loc:    15,
       injection_width:  1,
       injection_amount: 0.2,
       injection_type:   'TE',
       interface_width:  1,
     },
     {
-      injection_loc:    4,
+      injection_loc:    15,
       injection_width:  1,
       injection_amount: 1.,
       injection_type:   'LE',
@@ -248,7 +250,7 @@ class SimUI extends React.Component {
             </Col>
             <Col>
               { specie.injection_type === 'LE' || specie.injection_type === 'TE'
-                ?
+                ? // Injection amount for LE / TE are actually initial concentration
                 <InputFloat
                   hint="Initial Concentration"
                   placeholder="[mole / m^3]"
@@ -303,6 +305,11 @@ class SimUI extends React.Component {
 }
 
 const App = function() {
+  // for reset cache if app is updated to a newer version
+  if (localStorage.getItem('version') !== VERSION) {
+    localStorage.clear();
+    localStorage.setItem('version', VERSION);
+  }
   return (
     <Container>
       <Jumbotron className="p-4">

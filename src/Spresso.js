@@ -18,8 +18,9 @@ export class SpressoInput {
 }
 
 export class Spresso {
-  constructor(input) {
+  constructor(input, model) {
     this.input = input;
+    this.model = model;
     this.dx = input.domain_len / (input.num_grids - 1);
     this.dt = 0.2 * this.dx;
     this.step = 0;
@@ -59,7 +60,7 @@ export class Spresso {
     return tf.stack(this.concentration_tsx);
   }
 
-  simulateStep(model) {
+  simulateStep() {
     if (this.getCurrentTime() >= this.input.sim_time) {
       return false;
     }
@@ -67,7 +68,7 @@ export class Spresso {
     const { dt, dx } = this;
     const t = this.getCurrentTime();
     const concentration_sx = this.getCurrentConcentration();
-    const new_concentration_sx = tf.tidy(() => model.execute({
+    const new_concentration_sx = tf.tidy(() => this.model.execute({
       concentration_sx: concentration_sx,
       alpha_s: tf.tensor([.5, 1.], [2], 'float32'),
       dt: tf.scalar(dt, 'float32'),

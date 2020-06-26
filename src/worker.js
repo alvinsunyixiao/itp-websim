@@ -7,14 +7,8 @@ let ready = false;
 let updated = true;
 let model = undefined;
 
-tf.setBackend('webgl').then(async () => {
+tf.setBackend('cpu').then(async () => {
   model = await tf.loadGraphModel('/spresso_web/model.json');
-  model.execute({
-    concentration_sx: tf.zeros([2, 250], 'float32'),
-    alpha_s: tf.zeros([2], 'float32'),
-    dt: tf.tensor(.1, [], 'float32'),
-    dx: tf.tensor(.1, [], 'float32'),
-  })
   console.log("Tensorflow using " + tf.getBackend() + " backend.");
   ready = true;
 });
@@ -37,7 +31,7 @@ async function requestUpdate(updateX=false) {
 async function reset(input) {
   running = false;
   if (spresso) { spresso.reset(); }
-  spresso = new Spresso(input);
+  spresso = new Spresso(input, model);
   await requestUpdate(true);
 }
 
@@ -70,7 +64,6 @@ onmessage = function(e) {
     setTimeout(() => onmessage(e), 100);
     return;
   }
-  console.log(e.data.msg);
   switch (e.data.msg) {
     case 'reset':
       reset(e.data.input);
