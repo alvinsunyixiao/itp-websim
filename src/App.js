@@ -12,7 +12,7 @@ import Plot from 'react-plotly.js';
 // download file from frontend
 import download from 'downloadjs';
 
-import { spressoBurgerInput } from './Spresso';
+import { SpressoInput } from './Spresso';
 import { InputInt, InputFloat } from './input';
 
 const default_input = {
@@ -22,22 +22,34 @@ const default_input = {
   // data related
   num_grids:        250,
   domain_len:       50,
-  injection_loc:    15,
-  injection_width:  10,
-  injection_amount: 1,
-  interface_width:  1,
+  species: [
+    {
+      injection_loc:    4,
+      injection_width:  1,
+      injection_amount: 0.2,
+      injection_type:   'TE',
+      interface_width:  1,
+    },
+    {
+      injection_loc:    4,
+      injection_width:  1,
+      injection_amount: 1.,
+      injection_type:   'LE',
+      interface_width:  1,
+    },
+  ],
 };
 
 class SimUI extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      data: [],
       x: undefined,
-      y: undefined,
       t: undefined,
       run: false,
+      species: default_input.species,
     }
-    this.spresso = undefined;
     this.worker = new Worker('./worker.js', { type: 'module' });
     this.worker.onmessage = (e) => this.workerHandler(e);
   }
@@ -45,7 +57,16 @@ class SimUI extends React.Component {
   workerHandler(e) {
     switch (e.data.msg) {
       case 'update':
-        this.setState(e.data.plot);
+        this.setState({
+          t: e.data.plot.t,
+          data: [
+            e.data.plot.concentration_sx.subarray(0, this.state.num_grids),
+            e.data.plot.concentration_sx.subarray(this.state.num_grids),
+          ],
+        });
+        if (e.data.plot.x !== undefined) {
+          this.setState({x: e.data.plot.x});
+        }
         break;
       case 'finished':
         this.setState({running: false});
@@ -60,13 +81,16 @@ class SimUI extends React.Component {
   }
 
   inputValid() {
-    const { sim_time, num_grids, domain_len, animate_rate,
-            injection_loc, injection_width, injection_amount, interface_width } = this.state;
+    const { sim_time, num_grids, domain_len, animate_rate, species } = this.state;
     // TODO(alvin): actually perform validation here
     return (
       sim_time && num_grids && domain_len && animate_rate &&
-      injection_loc && injection_width &&
-      injection_amount && interface_width
+      species.every(specie =>
+        specie.injection_amount &&
+        specie.injection_loc &&
+        isFinite(specie.injection_width) &&
+        specie.injection_type &&
+        specie.interface_width)
     );
   }
 
@@ -74,17 +98,15 @@ class SimUI extends React.Component {
     if (!this.inputValid()) {
       return;
     }
-    const { sim_time, num_grids, domain_len, animate_rate,
-            injection_loc, injection_width, injection_amount, interface_width } = this.state;
+    const { sim_time, num_grids, domain_len, animate_rate, species } = this.state;
 
-    const spressoInput = new spressoBurgerInput(
-      sim_time, animate_rate, num_grids, domain_len,
-      injection_loc, injection_width, injection_amount, interface_width);
+    const input = new SpressoInput(
+      sim_time, animate_rate, num_grids, domain_len, species);
     if (update) {
-      this.worker.postMessage({msg: 'update input', input: spressoInput});
+      this.worker.postMessage({msg: 'update input', input: input});
     }
     else {
-      this.worker.postMessage({msg: 'reset', input: spressoInput});
+      this.worker.postMessage({msg: 'reset', input: input});
     }
   }
 
@@ -93,10 +115,7 @@ class SimUI extends React.Component {
         prevState.animate_rate !== this.state.animate_rate ||
         prevState.num_grids !== this.state.num_grids ||
         prevState.domain_len !== this.state.domain_len ||
-        prevState.injection_loc !== this.state.injection_loc ||
-        prevState.injection_width !== this.state.injection_width ||
-        prevState.injection_amount !== this.state.injection_amount ||
-        prevState.interface_width !== this.state.interface_width) {
+        prevState.species !== this.state.species) {
       this.resetHandler(true);
     }
 
@@ -109,12 +128,12 @@ class SimUI extends React.Component {
     const plot = (this.state.t !== undefined) ?
       <Plot
         className="mt-3"
-        data={[
-          {
+        data={this.state.data.map(ydata => {
+          return {
             x: this.state.x,
-            y: this.state.y,
-          }
-        ]}
+            y: ydata,
+          };
+        })}
         layout={{
           title: { text: 'Concentration Plot @ ' + this.state.t + 's' },
           xaxis: { title: { text: 'Domain [m]' } },
@@ -192,53 +211,80 @@ class SimUI extends React.Component {
             </InputFloat>
           </Col>
         </Form.Row>
-        <Form.Row>
-          <Col>
-            <InputFloat
-              hint="Injection Location"
-              placeholder="[mm]"
-              name="injection_loc"
-              update={(name, value) => this.setState({[name]: value * 1e-3})}
-              defaultValue={ default_input.injection_loc }
-            >
-              Injection Location in [mm].
-            </InputFloat>
-          </Col>
-          <Col>
-            <InputFloat
-              hint="Injection Width"
-              placeholder="[mm]"
-              name="injection_width"
-              update={(name, value) => this.setState({[name]: value * 1e-3})}
-              defaultValue={ default_input.injection_width }
-            >
-              Injection Width in [mm].
-            </InputFloat>
-          </Col>
-          <Col>
-            <InputFloat
-              hint="Injection Amount"
-              placeholder="[milli moles]"
-              name="injection_amount"
-              update={(name, value) => this.setState({[name]: value * 1e-3})}
-              defaultValue={ default_input.injection_amount }
-            >
-              Amount of injected substance in [milli moles].
-            </InputFloat>
-          </Col>
-          <Col>
-            <InputFloat
-              hint="Interface Width"
-              placeholder="[mm]"
-              name="interface_width"
-              update={(name, value) => this.setState({[name]: value * 1e-3})}
-              defaultValue={ default_input.interface_width }
-              readOnly
-            >
-              Interface width in [mm].
-            </InputFloat>
-          </Col>
-        </Form.Row>
+        { this.state.species.map((specie, specie_idx) => {
+          const setSpecieSpec = (name, value, scale=1) => {
+            this.setState({species: this.state.species.map((specie, idx) => {
+              if (idx === specie_idx) {
+                specie[name] = value * scale;
+              }
+              return specie;
+            })});
+          };
+
+          return (
+          <Form.Row className="mb-3" key={specie_idx}>
+            <Col sm="1"><strong>{ specie.injection_type }</strong></Col>
+            <Col>
+              <InputFloat
+                hint="Injection Location"
+                placeholder="[mm]"
+                name={ "injection_loc" + specie_idx }
+                update={(name, value) => setSpecieSpec("injection_loc", value, 1e-3)}
+                defaultValue={ default_input.species[specie_idx].injection_loc }
+              >
+                Injection Location in [mm].
+              </InputFloat>
+            </Col>
+            <Col>
+              <InputFloat
+                hint="Injection Width"
+                placeholder="[mm]"
+                name={"injection_width" + specie_idx}
+                update={(name, value) => setSpecieSpec("injection_width", value, 1e-3)}
+                defaultValue={ default_input.species[specie_idx].injection_width }
+              >
+                Injection Width in [mm].
+              </InputFloat>
+            </Col>
+            <Col>
+              { specie.injection_type === 'LE' || specie.injection_type === 'TE'
+                ?
+                <InputFloat
+                  hint="Initial Concentration"
+                  placeholder="[mole / m^3]"
+                  name={"injection_amount" + specie_idx}
+                  update={(name, value) => setSpecieSpec("injection_amount", value)}
+                  defaultValue={ default_input.species[specie_idx].injection_amount }
+                >
+                  Initial concentration in [mole / m^3].
+                </InputFloat>
+                :
+                <InputFloat
+                  hint="Injection Amount"
+                  placeholder="[milli moles]"
+                  name={"injection_amount" + specie_idx}
+                  update={(name, value) => setSpecieSpec("injection_amount", value, 1e-3)}
+                  defaultValue={ default_input.species[specie_idx].injection_amount }
+                >
+                  Amount of injected substance in [milli moles].
+                </InputFloat>
+              }
+            </Col>
+            <Col>
+              <InputFloat
+                hint="Interface Width"
+                placeholder="[mm]"
+                name={"interface_width" + specie_idx}
+                update={(name, value) => setSpecieSpec("interface_width", value, 1e-3)}
+                defaultValue={ default_input.species[specie_idx].interface_width }
+                readOnly
+              >
+                Interface width in [mm].
+              </InputFloat>
+            </Col>
+          </Form.Row>
+          )})
+        }
         <Row>
           { start_pause }
           <Button className="m-3 btn-danger" onClick={() => this.resetHandler()}>Reset</Button>

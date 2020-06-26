@@ -13,7 +13,6 @@ export class Input extends React.Component {
     if (value === null) {
       value = this.props.defaultValue;
       localStorage.setItem(name, value.toString());
-      console.log(value);
     }
     if (this.props.update)
       this.props.update(name, this.formatValue(value));

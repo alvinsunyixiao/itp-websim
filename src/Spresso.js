@@ -1,5 +1,4 @@
 import * as tf from '@tensorflow/tfjs';
-import { range, chain } from 'mathjs';
 
 /*
  * sim_time:      physical time in [s]
@@ -8,55 +7,40 @@ import { range, chain } from 'mathjs';
  * animate_rate:  animation rate in [steps / animation]
  **/
 
-export class spressoBurgerInput {
-  constructor(sim_time, animate_rate, num_grids, domain_len,
-              injection_loc, injection_width, injection_amount, interface_width) {
+export class SpressoInput {
+  constructor(sim_time, animate_rate, num_grids, domain_len, species) {
     this.sim_time = sim_time;
     this.animate_rate = animate_rate;
     this.num_grids = num_grids;
     this.domain_len = domain_len;
-    this.injection_loc = injection_loc;
-    this.injection_width = injection_width;
-    this.injection_amount = injection_amount;
-    this.interface_width = interface_width;
+    this.species = species;
   }
 }
 
-export class spressoBurger {
+export class Spresso {
   constructor(input) {
     this.input = input;
     this.dx = input.domain_len / (input.num_grids - 1);
-    this.dt = this.dx
+    this.dt = 0.2 * this.dx;
     this.step = 0;
-    const grid_x_arr = range(0, input.domain_len, this.dx, true);
-    this.grid_x = tf.tensor1d(grid_x_arr.toArray());
+    this.grid_x = tf.linspace(0, input.domain_len, input.num_grids);
     this.time_t = [0];
-    this.concentration_tx = [tf.tidy(() => {
-      const { injection_loc, injection_width, injection_amount, interface_width } = this.input;
-      const erf_l = tf.tensor1d(chain(grid_x_arr)
-        .add(-injection_loc+injection_width/2.).divide(interface_width).erf().done().toArray());
-      const erf_r = tf.tensor1d(chain(grid_x_arr)
-        .add(-injection_loc-injection_width/2.).divide(interface_width).erf().done().toArray());
-      const c_norm = tf.sub(erf_l, erf_r).mul(0.5);
-      const c_norm_integral = c_norm.sum().mul(this.dx);
-      const c0 = tf.div(injection_amount, c_norm_integral);
-      return c_norm.mul(c0);
-    })]
-  }
-
-  calcFlux(numeric_step=0) {
-    const N = this.input.num_grids;
-    const { dx } = this;
-    const concentration_x = this.getCurrentConcentration().add(numeric_step);
-    const c_right = concentration_x.slice([1], [N-1]);
-    const c_left = concentration_x.slice([0], [N-1]);
-    const flux = tf.sub(
-      tf.add(c_right.square(), c_left.square()).mul(0.5),
-      tf.abs(c_right.add(c_left)).mul(c_right.sub(c_left)).mul(0.5)
-    );
-    const rhs = tf.sub(flux.slice([0], [N-2]), flux.slice([1], [N-2])).div(dx);
-    const rhs_pad = rhs.pad([[1, 1]]);
-    return rhs_pad;
+    const concentration_sx = input.species.map(specie => {
+      const { injection_loc, injection_width, injection_amount, interface_width } = specie;
+      const erf_l = this.grid_x.add(-injection_loc+injection_width/2).div(interface_width).erf();
+      const erf_r = this.grid_x.add(-injection_loc-injection_width/2).div(interface_width).erf();
+      switch (specie.injection_type) {
+        case 'TE':
+          return erf_l.neg().add(1).mul(injection_amount/2);
+        case 'LE':
+          return erf_r.add(1).mul(injection_amount/2);
+        default:
+          console.log('Unsupported specie type ' + specie.type);
+      }
+      return undefined;
+    });
+    this.concentration_tsx = [tf.stack(concentration_sx)];
+    concentration_sx.forEach(concentration_x => concentration_x.dispose());
   }
 
   getCurrentStep() {
@@ -68,42 +52,36 @@ export class spressoBurger {
   }
 
   getCurrentConcentration() {
-    return this.concentration_tx[this.concentration_tx.length - 1];
+    return this.concentration_tsx[this.concentration_tsx.length - 1];
   }
 
   getAllConcentration() {
-    return tf.stack(this.concentration_tx);
+    return tf.stack(this.concentration_tsx);
   }
 
-  simulateStep() {
+  simulateStep(model) {
     if (this.getCurrentTime() >= this.input.sim_time) {
       return false;
     }
 
-    const { dt } = this;
-    const concentration_x = this.getCurrentConcentration();
+    const { dt, dx } = this;
     const t = this.getCurrentTime();
-    const k1 = tf.tidy(() => this.calcFlux());
-    const k2 = tf.tidy(() => this.calcFlux(k1.mul(0.5*dt)));
-    const k3 = tf.tidy(() => this.calcFlux(k2.mul(0.5*dt)));
-    const k4 = tf.tidy(() => this.calcFlux(k3.mul(dt)));
-    const flux = tf.tidy(() => k1.add(k2.mul(2)).add(k3.mul(2)).add(k4).div(6));
-    const new_concentration_x = tf.tidy(() => flux.mul(dt).add(concentration_x));
+    const concentration_sx = this.getCurrentConcentration();
+    const new_concentration_sx = tf.tidy(() => model.execute({
+      concentration_sx: concentration_sx,
+      alpha_s: tf.tensor([.5, 1.], [2], 'float32'),
+      dt: tf.scalar(dt, 'float32'),
+      dx: tf.scalar(dx, 'float32'),
+    }));
 
     this.time_t.push(t + dt);
-    this.concentration_tx.push(new_concentration_x);
-
-    k1.dispose();
-    k2.dispose();
-    k3.dispose();
-    k4.dispose();
-    flux.dispose();
+    this.concentration_tsx.push(new_concentration_sx);
 
     return true;
   }
 
   reset() {
-    this.concentration_tx.forEach(c => c.dispose());
+    this.concentration_tsx.forEach(c => c.dispose());
     this.grid_x.dispose();
   }
 }
