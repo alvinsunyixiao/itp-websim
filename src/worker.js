@@ -38,9 +38,14 @@ async function reset(input) {
 }
 
 async function updateInput(input) {
-  await reset(input);
-  spresso.input.sim_time = input.sim_time;
-  spresso.input.animate_rate = input.animate_rate;
+  if (!spresso || (spresso.input.sim_time === input.sim_time &&
+                   spresso.input.animate_rate === input.animate_rate)) {
+    await reset(input);
+  }
+  else {
+    spresso.input.sim_time = input.sim_time;
+    spresso.input.animate_rate = input.animate_rate;
+  }
 }
 
 async function simulate() {
