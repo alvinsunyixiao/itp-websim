@@ -20,7 +20,7 @@ const VERSION = 'spresso_2species';
 const default_input = {
   // simulation related
   sim_time:         0.03,
-  animate_rate:     40,
+  animate_rate:     50,
   // data related
   num_grids:        250,
   domain_len:       50,
