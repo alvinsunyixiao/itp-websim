@@ -231,7 +231,7 @@ class SimUI extends React.Component {
             <Col sm="1"><strong>{ specie.injection_type }</strong></Col>
             <Col>
               <InputFloat
-                hint="Injection Location"
+                hint={ <span>x<sub>inj</sub></span> }
                 placeholder="[mm]"
                 name={ "injection_loc" + specie_idx }
                 update={(name, value) => setSpecieSpec("injection_loc", value, 1e-3)}
@@ -242,7 +242,7 @@ class SimUI extends React.Component {
             </Col>
             <Col>
               <InputFloat
-                hint="Injection Width"
+                hint="h"
                 placeholder="[mm]"
                 name={"injection_width" + specie_idx}
                 update={(name, value) => setSpecieSpec("injection_width", value, 1e-3)}
@@ -255,7 +255,7 @@ class SimUI extends React.Component {
               { specie.injection_type === 'LE' || specie.injection_type === 'TE'
                 ? // Injection amount for LE / TE are actually initial concentration
                 <InputFloat
-                  hint="Initial Concentration"
+                  hint={ <span>c<sub>0</sub></span> }
                   placeholder="[mole / m^3]"
                   name={"injection_amount" + specie_idx}
                   update={(name, value) => setSpecieSpec("injection_amount", value)}
@@ -265,7 +265,7 @@ class SimUI extends React.Component {
                 </InputFloat>
                 :
                 <InputFloat
-                  hint="Injection Amount"
+                  hint="N"
                   placeholder="[milli moles]"
                   name={"injection_amount" + specie_idx}
                   update={(name, value) => setSpecieSpec("injection_amount", value, 1e-3)}
@@ -277,7 +277,7 @@ class SimUI extends React.Component {
             </Col>
             <Col>
               <InputFloat
-                hint="Interface Width"
+                hint="&sigma;"
                 placeholder="[mm]"
                 name={"interface_width" + specie_idx}
                 update={(name, value) => setSpecieSpec("interface_width", value, 1e-3)}
