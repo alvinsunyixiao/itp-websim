@@ -1,4 +1,5 @@
 import * as tf from '@tensorflow/tfjs';
+import { range, chain } from 'mathjs';
 
 /*
  * sim_time:      physical time in [s]
@@ -24,12 +25,15 @@ export class Spresso {
     this.dx = input.domain_len / (input.num_grids - 1);
     this.dt = 0.2 * this.dx;
     this.step = 0;
-    this.grid_x = tf.linspace(0, input.domain_len, input.num_grids);
+    const grid_x_arr = range(0, input.domain_len, this.dx);
+    this.grid_x = tf.tensor1d(grid_x_arr.toArray());
     this.time_t = [0];
     const concentration_sx = input.species.map(specie => {
       const { injection_loc, injection_width, injection_amount, interface_width } = specie;
-      const erf_l = this.grid_x.add(-injection_loc+injection_width/2).div(interface_width).erf();
-      const erf_r = this.grid_x.add(-injection_loc-injection_width/2).div(interface_width).erf();
+      const erf_l = tf.tensor1d(chain(grid_x_arr)
+        .add(-injection_loc+injection_width/2).divide(interface_width).erf().done().toArray());
+      const erf_r = tf.tensor1d(chain(grid_x_arr)
+        .add(-injection_loc-injection_width/2).divide(interface_width).erf().done().toArray());
       switch (specie.injection_type) {
         case 'TE':
           return erf_l.neg().add(1).mul(injection_amount/2);

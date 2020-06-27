@@ -1,5 +1,6 @@
 import { Spresso } from './Spresso';
 import * as tf from '@tensorflow/tfjs';
+import { setWasmPath } from '@tensorflow/tfjs-backend-wasm';
 
 let spresso = undefined;
 let running = false;
@@ -7,7 +8,8 @@ let ready = false;
 let updated = true;
 let model = undefined;
 
-tf.setBackend('cpu').then(async () => {
+setWasmPath('/tfjs-backend-wasm.wasm');
+tf.setBackend('wasm').then(async () => {
   model = await tf.loadGraphModel('/spresso_web/model.json');
   console.log("Tensorflow using " + tf.getBackend() + " backend.");
   ready = true;
