@@ -31,6 +31,7 @@ const default_input = {
       injection_amount: 0.2,
       injection_type:   'TE',
       interface_width:  1,
+      alpha:            0.5,
     },
     {
       injection_loc:    15,
@@ -38,6 +39,7 @@ const default_input = {
       injection_amount: 1.,
       injection_type:   'LE',
       interface_width:  1,
+      alpha:            1.,
     },
   ],
 };
@@ -130,10 +132,11 @@ class SimUI extends React.Component {
     const plot = (this.state.t !== undefined) ?
       <Plot
         className="mt-3"
-        data={this.state.data.map(ydata => {
+        data={this.state.data.map((ydata, idx) => {
           return {
             x: this.state.x,
             y: ydata,
+            name: this.state.species[idx].injection_type,
           };
         })}
         layout={{
@@ -284,6 +287,17 @@ class SimUI extends React.Component {
                 Interface width in [mm].
               </InputFloat>
             </Col>
+            <Col>
+              <InputFloat
+                hint="&alpha;"
+                placeholder=""
+                name={'alpha' + specie_idx}
+                update={(name, value) => setSpecieSpec('alpha', value)}
+                defaultValue={ default_input.species[specie_idx].alpha }
+              >
+                Quantity proportional to mobility, in [unit unclear].
+              </InputFloat>
+            </Col>
           </Form.Row>
           )})
         }
@@ -314,7 +328,7 @@ const App = function() {
     <Container>
       <Jumbotron className="p-4">
         <h1 className="header">
-          Spresso <span role="img" aria-label="burger">🍔</span> Simulator
+          Spresso Simulator (2 Species)
         </h1>
       </Jumbotron>
       <SimUI />

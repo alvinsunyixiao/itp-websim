@@ -74,7 +74,8 @@ export class Spresso {
     const concentration_sx = this.getCurrentConcentration();
     const new_concentration_sx = tf.tidy(() => this.model.execute({
       concentration_sx: concentration_sx,
-      alpha_s: tf.tensor([.5, 1.], [2], 'float32'),
+      alpha_s: tf.tensor(
+        this.input.species.map(specie => specie.alpha), [2], 'float32'),
       dt: tf.scalar(dt, 'float32'),
       dx: tf.scalar(dx, 'float32'),
     }));
