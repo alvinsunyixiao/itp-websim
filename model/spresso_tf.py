@@ -10,7 +10,8 @@ uH = 362e-9     # mobility of H+ ions
 uOH = 205e-9    # mobility of OH- ions
 Kw = 1e-14
 
-RK45_TABLE = {
+# for reference only
+RK45_TABLEAU = {
     'beta': [
         [1/4],
         [3/32,       9/32],
@@ -20,6 +21,19 @@ RK45_TABLE = {
     ],
     'c4': [25/216, 0, 1408/2565, 2197/4104, -1/5],
     'c5': [16/135, 0, 6656/12825, 28561/56430, -9/50, 2/55],
+}
+
+# dormand prince algorithm used by MatLAB's ode45
+DORPRI54_TABLEAU= {
+    'beta': [
+        [1/5],
+        [3/40,       9/40],
+        [44/45,      -56/15,      32/9],
+        [19372/6561, -25360/2187, 64448/6561, -212/729],
+        [9017/3168,  -355/33,     46732/5247, 49/176,  -5103/18656],
+        [35/384,     0,           500/1113,   125/192, -2187/6784, 11/84],
+    ],
+    'c4': [5179/57600, 0, 7571/16695, 393/640, -92097/339200, 187/2100, 1/40],
 }
 
 class SpressoTF(tf.Module):
@@ -47,7 +61,7 @@ class SpressoTF(tf.Module):
         rhs_den_n = tf.reduce_sum(
             ciz_cube_snd * val_mat_sd[:, None, :]**2 - \
                 approx * ciz_cube_snd * val_mat_sd[:, None, :] * \
-                temp_z_sn[..., None] / temp_mat_sn[..., None], 
+                      temp_z_sn[..., None] / temp_mat_sn[..., None], 
         axis=(0,2))
         rhs_num_n = tf.reduce_sum(ciz_cube_snd * val_mat_sd[:, None, :], axis=(0,2))
 
@@ -141,24 +155,26 @@ class SpressoTF(tf.Module):
 
         return tf.concat([gradient_left_s1, gradient_mid_sl, gradient_right_s1], axis=-1)
 
-    def rk45(self, c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx, dt):
+    def integrate(self, c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx, dt):
         calc_flux = lambda input_sn: self.calc_flux(input_sn, 
                 u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx)
-        T = RK45_TABLE['beta']
+        T = DORPRI54_TABLEAU['beta']
         k1 = dt * calc_flux(c_mat_sn)
         k2 = dt * calc_flux(c_mat_sn + (T[0][0]*k1))
         k3 = dt * calc_flux(c_mat_sn + (T[1][0]*k1 + T[1][1]*k2))
         k4 = dt * calc_flux(c_mat_sn + (T[2][0]*k1 + T[2][1]*k2 + T[2][2]*k3))
         k5 = dt * calc_flux(c_mat_sn + (T[3][0]*k1 + T[3][1]*k2 + T[3][2]*k3 + T[3][3]*k4))
-        k6 = dt * calc_flux(c_mat_sn + (T[4][0]*k1 + T[4][1]*k2 + T[4][2]*k3 + T[4][3]*k4 
-                                                   + T[4][4]*k5))
+        k6 = dt * calc_flux(c_mat_sn + (T[4][0]*k1 + T[4][1]*k2 + T[4][2]*k3 + T[4][3]*k4 +
+                                        T[4][4]*k5))
+        c_mat_5_sn = c_mat_sn + (T[5][0]*k1 + T[5][1]*k2 + T[5][2]*k3 + T[5][3]*k4 +
+                                 T[5][4]*k5 + T[5][5]*k6)
+        k7 = dt * calc_flux(c_mat_5_sn)
 
-        T = RK45_TABLE['c4']
-        c_mat_4_sn = c_mat_sn + (T[0]*k1 + T[1]*k2 + T[2]*k3 + T[3]*k4 + T[4]*k5)
-        T = RK45_TABLE['c5']
-        c_mat_5_sn = c_mat_sn + (T[0]*k1 + T[1]*k2 + T[2]*k3 + T[3]*k4 + T[4]*k5 + T[5]*k6)
+        T = DORPRI54_TABLEAU['c4']
+        c_mat_4_sn = c_mat_sn + (T[0]*k1 + T[1]*k2 + T[2]*k3 + T[3]*k4 + T[4]*k5 + 
+                                 T[5]*k6 + T[6]*k7)
 
-        error = tf.reduce_max(tf.abs(c_mat_4_sn - c_mat_5_sn)) / dt
+        error = tf.linalg.norm(c_mat_4_sn - c_mat_5_sn)
 
         return c_mat_5_sn, error
         
@@ -183,10 +199,10 @@ class SpressoTF(tf.Module):
         c_mat_5_sn = c_mat_sn
         error = tolerance + 1.
         while error > tolerance:
-            c_mat_5_sn, error = self.rk45(
+            c_mat_5_sn, error = self.integrate(
                 c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx, dt)
-            dt_scale = .84 * tf.math.divide_no_nan(tolerance, error)**(1/4)
-            dt_scale = tf.clip_by_value(dt_scale, 0.1, 10)
+            dt_scale = .9 * (tolerance / error)**(1/6)
+            dt_scale = tf.clip_by_value(dt_scale, 0.1, 5)
             dt *= dt_scale
 
         return cH_n, c_mat_5_sn, dt 
