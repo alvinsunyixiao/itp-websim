@@ -6,8 +6,8 @@ import { range, chain } from 'mathjs';
  * num_grids:     number of grid points
  * domain_len:    domain length in [m]
  * animate_rate:  animation rate in [steps / animation]
+ * species:       a dictionary of species properties
  **/
-
 export class SpressoInput {
   constructor(sim_time, animate_rate, num_grids, domain_len, species) {
     this.sim_time = sim_time;
@@ -29,16 +29,22 @@ export class Spresso {
     this.grid_x = tf.tensor1d(grid_x_arr.toArray());
     this.time_t = [0];
     const concentration_sx = input.species.map(specie => {
-      const { injection_loc, injection_width, injection_amount, interface_width } = specie;
-      const erf_l = tf.tensor1d(chain(grid_x_arr)
-        .add(-injection_loc+injection_width/2).divide(interface_width).erf().done().toArray());
-      const erf_r = tf.tensor1d(chain(grid_x_arr)
-        .add(-injection_loc-injection_width/2).divide(interface_width).erf().done().toArray());
+      const { injection_loc, injection_width, injection_amount, interface_width, 
+              init_concentration } = specie;
       switch (specie.injection_type) {
         case 'TE':
-          return erf_l.neg().add(1).mul(injection_amount/2);
+          const erf_te = tf.tensor1d(chain(grid_x_arr)
+            .add(-injection_loc).divide(interface_width).erf().done().toArray());
+          return erf_te.neg().add(1).mul(init_concentration/2);
         case 'LE':
-          return erf_r.add(1).mul(injection_amount/2);
+          const erf_le = tf.tensor1d(chain(grid_x_arr)
+            .add(-injection_loc).divide(interface_width).erf().done().toArray());
+          return erf_le.add(1).mul(init_concentration/2);
+        case 'Anaylyte':
+          const erf_l = tf.tensor1d(chain(grid_x_arr)
+            .add(-injection_loc+injection_width/2).divide(interface_width).erf().done().toArray());
+          const erf_r = tf.tensor1d(chain(grid_x_arr)
+            .add(-injection_loc-injection_width/2).divide(interface_width).erf().done().toArray());
         default:
           console.log('Unsupported specie type ' + specie.type);
       }

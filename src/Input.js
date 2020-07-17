@@ -29,11 +29,14 @@ export class Input extends React.Component {
       this.props.update(event.target.name, value);
     }
   }
-}
 
-export class InputNumber extends Input {
+  getContent() {
+    console.log('Base Input Class Content Not Implemented');
+    return '';
+  }
+
   render() {
-    const { hint, placeholder, name } = this.props;
+    const { hint } = this.props;
     return (
       <InputGroup size="sm">
         <InputGroup.Prepend>
@@ -49,16 +52,25 @@ export class InputNumber extends Input {
             <InputGroup.Text>{hint}</InputGroup.Text>
           </OverlayTrigger>
         </InputGroup.Prepend>
-        <Form.Control
-          name={ name }
-          placeholder={ placeholder }
-          type="number"
-          value={ localStorage.getItem(name) }
-          onChange={(event) => this.onChange(event)}
-          readOnly={ this.props.readOnly }
-        />
+        { this.getContent() }
       </InputGroup>
-    )
+    );
+  }
+}
+
+export class InputNumber extends Input {
+  getContent() {
+    const { name, placeholder } = this.props;
+    return (
+      <Form.Control
+        name={ name }
+        placeholder={ placeholder }
+        type="number"
+        value={ localStorage.getItem(name) }
+        onChange={ (event) => this.onChange(event) }
+        readOnly={ this.props.readOnly }
+      />
+    );
   }
 }
 
@@ -73,3 +85,20 @@ export class InputFloat extends InputNumber {
     return parseFloat(value);
   }
 }
+
+export class InputText extends Input {
+  getContent() {
+    const { name, placeholder } = this.props;
+    return (
+      <Form.Control
+        name={ name }
+        placeholder={ placeholder }
+        type="text"
+        value={ localStorage.getItem(name) }
+        onChange={ (event) => this.onChange(event) }
+        readOnly={ this.props.readOnly }
+      />
+    );
+  }
+}
+

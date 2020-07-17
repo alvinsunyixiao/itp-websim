@@ -13,7 +13,7 @@ import Plot from 'react-plotly.js';
 import download from 'downloadjs';
 
 import { SpressoInput } from './Spresso';
-import { InputInt, InputFloat } from './Input';
+import { InputInt, InputFloat, InputText } from './Input';
 
 const VERSION = 'spresso_2species';
 
@@ -26,20 +26,20 @@ const default_input = {
   domain_len:       50,
   species: [
     {
-      injection_loc:    15,
-      injection_width:  1,
-      injection_amount: 0.2,
-      injection_type:   'TE',
-      interface_width:  1,
-      alpha:            0.5,
+      name:               'SpecieA',
+      injection_loc:      15,
+      injection_type:     'TE',
+      init_concentration: 0.2,
+      interface_width:    1,
+      alpha:              0.5,
     },
     {
-      injection_loc:    15,
-      injection_width:  1,
-      injection_amount: 1.,
-      injection_type:   'LE',
-      interface_width:  1,
-      alpha:            1.,
+      name:               'SpecieB',
+      injection_loc:      15,
+      injection_type:     'LE',
+      init_concentration: 1.,
+      interface_width:    1,
+      alpha:              1.,
     },
   ],
 };
@@ -61,12 +61,13 @@ class SimUI extends React.Component {
   workerHandler(e) {
     switch (e.data.msg) {
       case 'update':
+        const { num_grids } = this.state;
         this.setState({
           t: e.data.plot.t,
-          data: [
-            e.data.plot.concentration_sx.subarray(0, this.state.num_grids),
-            e.data.plot.concentration_sx.subarray(this.state.num_grids),
-          ],
+          data: this.state.species.map((specie, specie_idx) => {
+            return e.data.plot.concentration_sx.subarray(specie_idx * num_grids,
+                                                         (specie_idx+1) * num_grids); 
+          }),         
         });
         if (e.data.plot.x !== undefined) {
           this.setState({x: e.data.plot.x});
@@ -90,9 +91,6 @@ class SimUI extends React.Component {
     return (
       sim_time && num_grids && domain_len && animate_rate &&
       species.every(specie =>
-        specie.injection_amount &&
-        specie.injection_loc &&
-        isFinite(specie.injection_width) &&
         specie.injection_type &&
         specie.interface_width)
     );
@@ -217,10 +215,13 @@ class SimUI extends React.Component {
           </Col>
         </Form.Row>
         { this.state.species.map((specie, specie_idx) => {
-          const setSpecieSpec = (name, value, scale=1) => {
+          const setSpecieSpec = (name, value, scale=undefined) => {
             this.setState({species: this.state.species.map((specie, idx) => {
               if (idx === specie_idx) {
-                specie[name] = value * scale;
+                if (scale !== undefined) {
+                  value *= scale;
+                }
+                specie[name] = value;
               }
               return specie;
             })});
@@ -230,48 +231,60 @@ class SimUI extends React.Component {
           <Form.Row className="mb-3" key={specie_idx}>
             <Col sm="1"><strong>{ specie.injection_type }</strong></Col>
             <Col>
+              <InputText
+                hint="name"
+                name={ specie.name }
+                update={(name, value) => setSpecieSpec("name", value)}
+                defaultValue={ default_input.species[specie_idx].name }
+              >
+                Specie Name.
+              </InputText>
+            </Col>
+            <Col>
               <InputFloat
                 hint={ <span>x<sub>inj</sub></span> }
                 placeholder="[mm]"
-                name={ "injection_loc" + specie_idx }
+                name={ "injection_loc" + specie.name }
                 update={(name, value) => setSpecieSpec("injection_loc", value, 1e-3)}
                 defaultValue={ default_input.species[specie_idx].injection_loc }
               >
                 Injection Location in [mm].
               </InputFloat>
             </Col>
+            { specie.injection_type === 'Anaylyte' &&
             <Col>
               <InputFloat
                 hint="h"
                 placeholder="[mm]"
-                name={"injection_width" + specie_idx}
+                name={ "injection_width" + specie.name }
                 update={(name, value) => setSpecieSpec("injection_width", value, 1e-3)}
                 defaultValue={ default_input.species[specie_idx].injection_width }
               >
                 Injection Width in [mm].
               </InputFloat>
             </Col>
+            }
             <Col>
               { specie.injection_type === 'LE' || specie.injection_type === 'TE'
                 ? // Injection amount for LE / TE are actually initial concentration
                 <InputFloat
                   hint={ <span>c<sub>0</sub></span> }
                   placeholder="[mole / m^3]"
-                  name={"injection_amount" + specie_idx}
-                  update={(name, value) => setSpecieSpec("injection_amount", value)}
-                  defaultValue={ default_input.species[specie_idx].injection_amount }
+                  name={ "init_concentration" + specie.name }
+                  update={(name, value) => setSpecieSpec("init_concentration", value)}
+                  defaultValue={ default_input.species[specie_idx].init_concentration }
                 >
                   Initial concentration in [mole / m^3].
                 </InputFloat>
                 :
                 <InputFloat
                   hint="N"
-                  placeholder="[milli moles]"
-                  name={"injection_amount" + specie_idx}
+                  placeholder="[milli mole]"
+                  name={"injection_amount" + specie.name }
                   update={(name, value) => setSpecieSpec("injection_amount", value, 1e-3)}
                   defaultValue={ default_input.species[specie_idx].injection_amount }
                 >
-                  Amount of injected substance in [milli moles].
+                  Amount of injected substance in [milli mole].
                 </InputFloat>
               }
             </Col>
@@ -279,7 +292,7 @@ class SimUI extends React.Component {
               <InputFloat
                 hint="&sigma;"
                 placeholder="[mm]"
-                name={"interface_width" + specie_idx}
+                name={ "interface_width" + specie.name }
                 update={(name, value) => setSpecieSpec("interface_width", value, 1e-3)}
                 defaultValue={ default_input.species[specie_idx].interface_width }
                 readOnly
@@ -291,7 +304,7 @@ class SimUI extends React.Component {
               <InputFloat
                 hint="&alpha;"
                 placeholder=""
-                name={'alpha' + specie_idx}
+                name={ 'alpha' + specie.name }
                 update={(name, value) => setSpecieSpec('alpha', value)}
                 defaultValue={ default_input.species[specie_idx].alpha }
               >
@@ -299,8 +312,8 @@ class SimUI extends React.Component {
               </InputFloat>
             </Col>
           </Form.Row>
-          )})
-        }
+          );
+        })}
         <Row>
           { start_pause }
           <Button className="m-3 btn-danger" onClick={() => this.resetHandler()}>Reset</Button>
