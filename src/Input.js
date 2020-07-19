@@ -1,104 +1,117 @@
 import React from 'react';
-// bootstrap stuff
-import InputGroup from 'react-bootstrap/InputGroup';
-import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
-import Tooltip from 'react-bootstrap/Tooltip';
-import Form from 'react-bootstrap/Form';
+// material-ui
+import TextField from '@material-ui/core/TextField';
+import MenuItem from '@material-ui/core/MenuItem';
+import Tooltip from '@material-ui/core/Tooltip';
 
-export class Input extends React.Component {
+class Input extends React.Component {
   constructor(props) {
     super(props);
     const { name } = this.props;
-    let value = localStorage.getItem(name);
-    if (value === null) {
-      value = this.props.defaultValue;
-      localStorage.setItem(name, value.toString());
+    let value = this.props.defaultValue || '';
+    if (this.props.cache) {
+      value = localStorage.getItem(name) || value;
     }
-    if (this.props.update)
-      this.props.update(name, this.formatValue(value));
+    this.updateCache(name, value.toString());
+    if (this.props.update) {
+      if (this.props.value !== undefined) {
+        this.props.update(name, this.props.value);
+      }
+      else {
+        this.props.update(name, value);
+      }
+    }
   }
 
-  formatValue(value) {
-    return value;
+  updateCache(name, value) {
+    if (this.props.cache) {
+      localStorage.setItem(name, value);
+    }
   }
 
   onChange(event) {
-    localStorage.setItem(event.target.name, event.target.value);
-    const value = this.formatValue(event.target.value);
+    this.updateCache(event.target.name, event.target.value);
+    const value = event.target.value;
     if (this.props.update) {
       this.props.update(event.target.name, value);
     }
   }
-
-  getContent() {
-    console.log('Base Input Class Content Not Implemented');
-    return '';
-  }
-
-  render() {
-    const { hint } = this.props;
-    return (
-      <InputGroup size="sm">
-        <InputGroup.Prepend>
-          <OverlayTrigger
-            placement="bottom"
-            delay={{ show: 500 }}
-            overlay={
-              <Tooltip>
-                { this.props.children }
-              </Tooltip>
-            }
-          >
-            <InputGroup.Text>{hint}</InputGroup.Text>
-          </OverlayTrigger>
-        </InputGroup.Prepend>
-        { this.getContent() }
-      </InputGroup>
-    );
-  }
 }
 
 export class InputNumber extends Input {
-  getContent() {
-    const { name, placeholder } = this.props;
+  render() {
+    const { name, value, label, readOnly, valid, invalidText } = this.props;
+    const props = { name, label };
     return (
-      <Form.Control
-        name={ name }
-        placeholder={ placeholder }
-        type="number"
-        value={ localStorage.getItem(name) }
-        onChange={ (event) => this.onChange(event) }
-        readOnly={ this.props.readOnly }
-      />
+      <Tooltip title={ this.props.children } enterDelay={400} arrow>
+        <TextField
+          fullWidth
+          error={ !valid }
+          helperText={ !valid && invalidText }
+          type="number"
+          value={ value || '' }
+          size="small"
+          variant="outlined"
+          InputProps={{
+            readOnly: readOnly
+          }}
+          onChange={ (event) => this.onChange(event) }
+          {...props}
+        />
+      </Tooltip>
     );
-  }
-}
-
-export class InputInt extends InputNumber {
-  formatValue(value) {
-    return parseInt(value);
-  }
-}
-
-export class InputFloat extends InputNumber {
-  formatValue(value) {
-    return parseFloat(value);
   }
 }
 
 export class InputText extends Input {
-  getContent() {
-    const { name, placeholder } = this.props;
+  render() {
+    const { name, value, label, readOnly, valid, invalidText } = this.props;
+    const props = { name, label };
     return (
-      <Form.Control
-        name={ name }
-        placeholder={ placeholder }
-        type="text"
-        value={ localStorage.getItem(name) }
-        onChange={ (event) => this.onChange(event) }
-        readOnly={ this.props.readOnly }
-      />
+      <Tooltip title={ this.props.children } enterDelay={400} arrow>
+        <TextField
+          fullWidth
+          error={ !valid }
+          helperText={ !valid && invalidText }
+          type="text"
+          value={ value || '' }
+          size="small"
+          variant="outlined"
+          InputProps={{
+            readOnly: readOnly
+          }}
+          onChange={ (event) => this.onChange(event) }
+          {...props}
+        />
+      </Tooltip>
     );
   }
 }
 
+export class InputSelect extends Input {
+  render() {
+    const { options, name, value, label } = this.props;
+    const props = { name, label };
+    return (
+      <Tooltip title={ this.props.children } enterDelay={400} arrow>
+        <TextField
+          select
+          fullWidth
+          value={ value || '' }
+          size="small"
+          variant="outlined"
+          onChange={ (event) => {
+            this.onChange(event);
+          }}
+          {...props}
+        >
+          {options.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              { option.label }
+            </MenuItem>
+          ))}
+        </TextField>
+      </Tooltip>
+    );
+  }
+}

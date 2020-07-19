@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@material-ui/core": "^4.11.0",
+    "@material-ui/icons": "^4.9.1",
     "@tensorflow/tfjs": "^2.0.1",
     "@tensorflow/tfjs-backend-wasm": "^2.0.1",
     "@testing-library/jest-dom": "^4.2.4",
@@ -12,7 +14,6 @@
     "mathjs": "^7.0.2",
     "plotly.js": "^1.54.3",
     "react": "^16.13.1",
-    "react-bootstrap": "^1.0.1",
     "react-dom": "^16.13.1",
     "react-plotly.js": "^2.4.0",
     "react-router-dom": "^5.2.0",

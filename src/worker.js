@@ -38,19 +38,19 @@ async function reset(input) {
 }
 
 async function updateInput(input) {
-  if (!spresso || (spresso.input.sim_time === input.sim_time &&
-                   spresso.input.animate_rate === input.animate_rate)) {
+  if (!spresso || (spresso.input.simTime === input.simTime &&
+                   spresso.input.animateRate === input.animateRate)) {
     await reset(input);
   }
   else {
-    spresso.input.sim_time = input.sim_time;
-    spresso.input.animate_rate = input.animate_rate;
+    spresso.input.simTime = input.simTime;
+    spresso.input.animateRate = input.animateRate;
   }
 }
 
 async function simulate() {
   let shouldContinue = running;
-  for (let i = 0; i < spresso.input.animate_rate && shouldContinue; ++i) {
+  for (let i = 0; i < spresso.input.animateRate && shouldContinue; ++i) {
     shouldContinue = spresso.simulateStep(model);
   }
   if (shouldContinue) {

@@ -2,55 +2,89 @@ import * as tf from '@tensorflow/tfjs';
 import { range, chain } from 'mathjs';
 
 /*
- * sim_time:      physical time in [s]
- * num_grids:     number of grid points
- * domain_len:    domain length in [m]
- * animate_rate:  animation rate in [steps / animation]
+ * simTime:      physical time in [s]
+ * numGrids:     number of grid points
+ * domainLen:    domain length in [m]
+ * animateRate:  animation rate in [steps / animation]
  * species:       a dictionary of species properties
  **/
 export class SpressoInput {
-  constructor(sim_time, animate_rate, num_grids, domain_len, species) {
-    this.sim_time = sim_time;
-    this.animate_rate = animate_rate;
-    this.num_grids = num_grids;
-    this.domain_len = domain_len;
+  constructor(simTime, animateRate, numGrids, domainLen, interfaceWidth, species) {
+    // convert type+unit to SI
+    this.simTime = simTime;
+    this.animateRate = animateRate;
+    this.numGrids = numGrids;
+    this.domainLen = domainLen;
+    this.interfaceWidth = interfaceWidth;
     this.species = species;
   }
 }
 
 export class Spresso {
+  parseInput(input) {
+    return {
+      simTime:        parseFloat(input.simTime),
+      animateRate:    parseInt(input.animateRate),
+      numGrids:       parseInt(input.numGrids),
+      domainLen:      parseFloat(input.domainLen) * 1e-3,
+      interfaceWidth: parseFloat(input.interfaceWidth) * 1e-3,
+      species:        input.species.map((specie) => ({
+        ...specie,
+        injectionAmount:    parseFloat(specie.injectionAmount) * 1e-3,
+        injectionLoc:       parseFloat(specie.injectionLoc) * 1e-3,
+        injectionWidth:     parseFloat(specie.injectionWidth) * 1e-3,
+        initConcentration:  parseFloat(specie.initConcentration),
+      })),
+    }
+  }
+
   constructor(input, model) {
+    input = this.parseInput(input);
     this.input = input;
     this.model = model;
-    this.dx = input.domain_len / (input.num_grids - 1);
+    this.dx = input.domainLen / (input.numGrids - 1);
     this.dt = 0.2 * this.dx;
     this.step = 0;
-    const grid_x_arr = range(0, input.domain_len, this.dx);
+    const grid_x_arr = range(0, input.domainLen, this.dx);
     this.grid_x = tf.tensor1d(grid_x_arr.toArray());
     this.time_t = [0];
     const concentration_sx = input.species.map(specie => {
-      const { injection_loc, injection_width, injection_amount, interface_width, 
-              init_concentration } = specie;
-      switch (specie.injection_type) {
+      const { interfaceWidth } = input;
+      const { injectionLoc, injectionWidth, injectionAmount, initConcentration } = specie;
+      switch (specie.injectionType) {
         case 'TE':
-          const erf_te = tf.tensor1d(chain(grid_x_arr)
-            .add(-injection_loc).divide(interface_width).erf().done().toArray());
-          return erf_te.neg().add(1).mul(init_concentration/2);
+          return tf.tidy(() => {
+            const erf_te = tf.tensor1d(chain(grid_x_arr)
+              .add(-injectionLoc).divide(interfaceWidth).erf().done().toArray());
+            return erf_te.neg().add(1).mul(initConcentration/2);
+          });
         case 'LE':
-          const erf_le = tf.tensor1d(chain(grid_x_arr)
-            .add(-injection_loc).divide(interface_width).erf().done().toArray());
-          return erf_le.add(1).mul(init_concentration/2);
-        case 'Anaylyte':
-          const erf_l = tf.tensor1d(chain(grid_x_arr)
-            .add(-injection_loc+injection_width/2).divide(interface_width).erf().done().toArray());
-          const erf_r = tf.tensor1d(chain(grid_x_arr)
-            .add(-injection_loc-injection_width/2).divide(interface_width).erf().done().toArray());
+          return tf.tidy(() => {
+            const erf_le = tf.tensor1d(chain(grid_x_arr)
+              .add(-injectionLoc).divide(interfaceWidth).erf().done().toArray());
+            return erf_le.add(1).mul(initConcentration/2);
+          });
+        case 'Analyte':
+          return tf.tidy(() => {
+            const erf_l = tf.tensor1d(chain(grid_x_arr)
+              .add(-injectionLoc+injectionWidth/2)
+              .divide(interfaceWidth).erf().done().toArray());
+            const erf_r = tf.tensor1d(chain(grid_x_arr)
+              .add(-injectionLoc-injectionWidth/2)
+              .divide(interfaceWidth).erf().done().toArray());
+            const lhs = erf_l.add(1);
+            const rhs = erf_r.add(1);
+            const c_raw = lhs.sub(rhs);
+            const c0_over_2 = tf.scalar(injectionAmount/this.dx).div(tf.sum(c_raw));
+            return c_raw.mul(c0_over_2);
+          });
         default:
           console.log('Unsupported specie type ' + specie.type);
       }
       return undefined;
     });
-    this.concentration_tsx = [tf.stack(concentration_sx)];
+    this.concentration_tsx = concentration_sx.length ?
+      [tf.stack(concentration_sx)] : [tf.tensor1d([])];
     concentration_sx.forEach(concentration_x => concentration_x.dispose());
   }
 
@@ -71,7 +105,7 @@ export class Spresso {
   }
 
   simulateStep() {
-    if (this.getCurrentTime() >= this.input.sim_time) {
+    if (this.getCurrentTime() >= this.input.simTime) {
       return false;
     }
 
@@ -80,8 +114,7 @@ export class Spresso {
     const concentration_sx = this.getCurrentConcentration();
     const new_concentration_sx = tf.tidy(() => this.model.execute({
       concentration_sx: concentration_sx,
-      alpha_s: tf.tensor(
-        this.input.species.map(specie => specie.alpha), [2], 'float32'),
+      alpha_s: tf.tensor([0.5, 1.]),
       dt: tf.scalar(dt, 'float32'),
       dx: tf.scalar(dx, 'float32'),
     }));
