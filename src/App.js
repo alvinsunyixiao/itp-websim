@@ -47,6 +47,7 @@ class SimUI extends React.Component {
       t: undefined,
       run: false,
       species: JSON.parse(localStorage.getItem("species")) || [],
+      injectionValid: JSON.parse(localStorage.getItem("injectionValid") || false),
     }
     this.worker = new Worker('./worker.js', { type: 'module' });
     this.worker.onmessage = (e) => this.workerHandler(e);
@@ -87,7 +88,7 @@ class SimUI extends React.Component {
     );
   }
 
-  resetHandler(update=false) {
+  resetHandler() {
     if (!this.inputValid()) {
       return;
     }
@@ -95,12 +96,56 @@ class SimUI extends React.Component {
 
     const input = new SpressoInput(
       simTime, animateRate, numGrids, domainLen, interfaceWidth, species);
-    if (update) {
-      this.worker.postMessage({msg: 'update input', input: input});
+
+    this.worker.postMessage({msg: 'reset', input: input});
+  }
+
+  validateInjection() {
+    if (!this.state.domainLenValid) {
+      return false;
     }
-    else {
-      this.worker.postMessage({msg: 'reset', input: input});
+    const domainLen = parseFloat(this.state.domainLen);
+    // validate raw entry
+    if (!this.state.species.every((specie) => {
+      const injectionLoc = parseFloat(specie.injectionLoc);
+      const injectionWidth = parseFloat(specie.injectionWidth);
+      const injectionLocValid = (injectionLoc > 0 && injectionLoc < domainLen);
+      const injectionWidthValid = (injectionWidth > 0);
+      switch (specie.injectionType) {
+        case 'Analyte':
+          return injectionLocValid && injectionWidthValid; 
+        case 'LE':
+        case 'TE':
+          return injectionLocValid;
+        default:
+          return true;
+      }
+    })) {
+      return false;
     }
+    // validate overlap
+    let intervals = this.state.species.map((specie) => {
+      const loc = parseFloat(specie.injectionLoc);
+      const width = parseFloat(specie.injectionWidth);
+      switch (specie.injectionType) {
+        case 'TE':
+          return {left: 0., right: loc};
+        case 'LE':
+          return {left: loc, right: domainLen};
+        case 'Analyte':
+          return {left: loc - width/2, right: loc + width/2};
+        default:
+          return {left: 0., right: domainLen};
+      }
+    }).sort((a, b) => a.left - b.left);
+    intervals.unshift({left: -1., right: 0.});
+    intervals.push({left: domainLen, right: domainLen + 1});
+    for (let i = 0; i < intervals.length - 1; ++i) {
+      if (intervals[i].right < intervals[i+1].left) {
+        return false;
+      }
+    }
+    return true;
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -109,13 +154,17 @@ class SimUI extends React.Component {
         prevState.numGrids !== this.state.numGrids ||
         prevState.domainLen !== this.state.domainLen ||
         prevState.species !== this.state.species) {
-      this.resetHandler(true);
+      this.resetHandler();
     }
     // cache the new species dict if updated
     if (prevState.species !== this.state.species) {
       localStorage.setItem("species", JSON.stringify(this.state.species));
+      // validate injection
+      const injectionValid = this.validateInjection();
+      localStorage.setItem("injectionValid", JSON.stringify(injectionValid));
+      this.setState({injectionValid});
     }
-
+    // inform worker about graphics update
     if (prevState.t !== this.state.t) {
       this.worker.postMessage({msg: 'updated'});
     }
@@ -336,9 +385,9 @@ class SimUI extends React.Component {
               <Grid item sm={4} key="injectionLoc">
                 <InputNumber
                   label={ <span>x<sub>inj</sub></span> }
-                  valid={ this.state.injectionValid || false }
+                  valid={ this.state.injectionValid }
                   invalidText={specieIdx === this.state.species.length - 1 && 
-                    "Concentration gaps presenet. Please ensure enough concentration overlap"}
+                    "Please ensure enough concentration overlap"}
                   name={ "injectionLoc" + specie.name }
                   value={ specie.injectionLoc }
                   update={(name, value) => setSpecieSpec("injectionLoc", value)}
@@ -350,7 +399,7 @@ class SimUI extends React.Component {
               <Grid item sm={4} key="injectionWidth">
                 <InputNumber
                   label="h"
-                  valid={ this.state.injectionValid || false }
+                  valid={ this.state.injectionValid }
                   name={ "injectionWidth" + specie.name }
                   value={ specie.injectionWidth }
                   update={(name, value) => setSpecieSpec("injectionWidth", value)}
@@ -364,21 +413,28 @@ class SimUI extends React.Component {
               <Grid item sm={4} key="valence">
                 <InputText
                   label="Valence"
+                  valid= { specie.valenceValid }
+                  invalidText="Format error"
                   name={ "valence" + specie.name }
                   value={ specie.valence }
                   update={(name, value) => setSpecieSpec("valence", value)}
                 >
-                  Valence electrical charges.
+                  Valence electrical charges. <br/>
+                  <strong>Format:</strong> a comma seperated list of integers (e.g. 2, 1, -1).
                 </InputText>
               </Grid>
               <Grid item sm={4} key="mobility">
                 <InputText
                   label="&mu;"
+                  valid={ specie.mobilityValid }
+                  invalidText={ !specie.paramsValid && "" }
                   name={ "mobility" + specie.name }
                   value={ specie.mobility }
                   update={(name, value) => setSpecieSpec("mobility", value)}
                 >
-                  Mobility at each valence in [m<sup>2</sup>/(V&middot;s)].
+                  Mobility at each valence in [10<sup>-9</sup>m<sup>2</sup>/(V&middot;s)]. <br/>
+                  <strong>Format:</strong> a comma seperated list of numbers (must have the
+                  same number of entries as the number of valences.
                 </InputText>
               </Grid>
               <Grid item sm={4} key="pKa">
@@ -389,6 +445,8 @@ class SimUI extends React.Component {
                   update={(name, value) => setSpecieSpec("pKa", value)}
                 >
                   Negative log dissociation constant at each valence.
+                  <strong>Format:</strong> a comma seperated list of numbers (must have the
+                  same number of entries as the number of valences.
                 </InputText>
               </Grid>
             </Grid>

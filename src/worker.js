@@ -37,17 +37,6 @@ async function reset(input) {
   await requestUpdate(true);
 }
 
-async function updateInput(input) {
-  if (!spresso || (spresso.input.simTime === input.simTime &&
-                   spresso.input.animateRate === input.animateRate)) {
-    await reset(input);
-  }
-  else {
-    spresso.input.simTime = input.simTime;
-    spresso.input.animateRate = input.animateRate;
-  }
-}
-
 async function simulate() {
   let shouldContinue = running;
   for (let i = 0; i < spresso.input.animateRate && shouldContinue; ++i) {
@@ -74,9 +63,6 @@ onmessage = function(e) {
   switch (e.data.msg) {
     case 'reset':
       reset(e.data.input);
-      break;
-    case 'update input':
-      updateInput(e.data.input);
       break;
     case 'start':
       updated = true;
