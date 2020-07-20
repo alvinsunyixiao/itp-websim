@@ -42,7 +42,7 @@ export class Spresso {
     input = this.parseInput(input);
     this.input = input;
     this.model = model;
-    this.dx = input.domainLen / (input.numGrids - 1);
+    this.dx = input.domainLen / input.numGrids;
     this.dt = 0.2 * this.dx;
     this.step = 0;
     const grid_x_arr = range(0, input.domainLen, this.dx);

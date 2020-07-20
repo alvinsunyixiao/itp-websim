@@ -320,7 +320,7 @@ class SimUI extends React.Component {
               defaultValue={ DEFAULT_INPUT.interfaceWidth }
               readOnly
             >
-              Interface width in [mm].
+              Interface width in [mm] (Read Only).
             </InputNumber>
           </Grid>
           <Grid item sm={1} key="add_button">
