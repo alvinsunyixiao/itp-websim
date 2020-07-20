@@ -148,6 +148,29 @@ class SimUI extends React.Component {
     return true;
   }
 
+  validateProperties(specie, name, value) {
+    const specieNew = {...specie, [name]: value};
+    const { valence, mobility, pKa } = specieNew;
+    // check for empty input
+    if (!valence || !mobility || !pKa) {
+      return false;
+    }
+    // valid specie properties
+    const numValence = valence.split(',').length;
+    if (valence.replace(/\s/g, '').split(',').every((val) => (
+        Number.isInteger(parseFloat(val)))) &&        // check valence is integer
+        mobility.split(',').length === numValence &&  // check mobility is of same length
+        mobility.replace(/\s/g, '').split(',').every((val) => (
+        parseFloat(val) > 0)) &&                      // check mobility is positive
+        pKa.split(',').length === numValence &&       // check pKa is of same length
+        pKa.replace(/\s/g, '').split(',').every((val) => (
+        parseFloat(val) > 0))) {                      // check pKa is positive
+      return true;
+    }
+    // properties invalid
+    return false;
+  }
+
   componentDidUpdate(prevProps, prevState) {
     if (prevState.simTime !== this.state.simTime ||
         prevState.animateRate !== this.state.animateRate ||
@@ -312,11 +335,12 @@ class SimUI extends React.Component {
         </Grid></Box>
         {this.state.species.map((specie, specieIdx) => {
           // callback function for setting per specie properties
-          const setSpecieSpec = (name, value, valid) => {
+          const setSpecieSpec = (name, value, valid, validName=undefined) => {
+            validName = validName || (name + "Valid");
             this.setState({species: this.state.species.map((specie, idx) => {
               if (idx === specieIdx) {
                 specie[name] = value;
-                specie[name+"Valid"] = valid;
+                specie[validName] = valid;
               }
               return specie;
             })});
@@ -413,11 +437,12 @@ class SimUI extends React.Component {
               <Grid item sm={4} key="valence">
                 <InputText
                   label="Valence"
-                  valid= { specie.valenceValid }
+                  valid= { specie.propertyValid || false }
                   invalidText="Format error"
                   name={ "valence" + specie.name }
                   value={ specie.valence }
-                  update={(name, value) => setSpecieSpec("valence", value)}
+                  update={(name, value) => setSpecieSpec("valence", value,
+                    this.validateProperties(specie, 'valence', value), 'propertyValid')}
                 >
                   Valence electrical charges. <br/>
                   <strong>Format:</strong> a comma seperated list of integers (e.g. 2, 1, -1).
@@ -426,11 +451,11 @@ class SimUI extends React.Component {
               <Grid item sm={4} key="mobility">
                 <InputText
                   label="&mu;"
-                  valid={ specie.mobilityValid }
-                  invalidText={ !specie.paramsValid && "" }
+                  valid= { specie.propertyValid || false }
                   name={ "mobility" + specie.name }
                   value={ specie.mobility }
-                  update={(name, value) => setSpecieSpec("mobility", value)}
+                  update={(name, value) => setSpecieSpec("mobility", value,
+                    this.validateProperties(specie, 'mobility', value), 'propertyValid')}
                 >
                   Mobility at each valence in [10<sup>-9</sup>m<sup>2</sup>/(V&middot;s)]. <br/>
                   <strong>Format:</strong> a comma seperated list of numbers (must have the
@@ -440,11 +465,13 @@ class SimUI extends React.Component {
               <Grid item sm={4} key="pKa">
                 <InputText
                   label="pKa"
+                  valid= { specie.propertyValid || false }
                   name={ "pKa" + specie.name }
                   value={ specie.pKa }
-                  update={(name, value) => setSpecieSpec("pKa", value)}
+                  update={(name, value) => setSpecieSpec("pKa", value,
+                    this.validateProperties(specie, 'pKa', value), 'propertyValid')}
                 >
-                  Negative log dissociation constant at each valence.
+                  Negative log dissociation constant at each valence. <br/>
                   <strong>Format:</strong> a comma seperated list of numbers (must have the
                   same number of entries as the number of valences.
                 </InputText>
