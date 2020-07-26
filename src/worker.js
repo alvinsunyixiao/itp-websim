@@ -9,8 +9,8 @@ let updated = true;
 let model = undefined;
 
 setWasmPath('/tfjs-backend-wasm.wasm');
-tf.setBackend('wasm').then(async () => {
-  model = await tf.loadGraphModel('/spresso_web/model.json');
+tf.setBackend('webgl').then(async () => {
+  model = await tf.loadGraphModel('/spresso_tf/model.json');
   console.log("Tensorflow using " + tf.getBackend() + " backend.");
   ready = true;
 });
@@ -22,10 +22,10 @@ async function requestUpdate(updateX=false) {
   updated = false;
   let plot = {
     t: spresso.getCurrentTime(),
-    concentration_sx: await spresso.getCurrentConcentration().data(),
+    concentration_sn: await spresso.getCurrentConcentration().data(),
   }
   if (updateX) {
-    plot.x = await spresso.grid_x.data();
+    plot.x = await spresso.grid_n.data();
   }
   postMessage({msg: 'update', plot: plot});
 }
@@ -40,7 +40,7 @@ async function reset(input) {
 async function simulate() {
   let shouldContinue = running;
   for (let i = 0; i < spresso.input.animateRate && shouldContinue; ++i) {
-    shouldContinue = spresso.simulateStep(model);
+    shouldContinue = await spresso.simulateStep(model);
   }
   if (shouldContinue) {
     setTimeout(simulate, 0);
@@ -62,7 +62,9 @@ onmessage = function(e) {
   }
   switch (e.data.msg) {
     case 'reset':
-      reset(e.data.input);
+      reset(e.data.input).catch((err) => {
+        console.warn("Input invalid: ", err);
+      });
       break;
     case 'start':
       updated = true;
@@ -74,9 +76,6 @@ onmessage = function(e) {
       break;
     case 'updated':
       updated = true;
-      break;
-    case 'config':
-      postMessage({msg: 'config', config: spresso.input});
       break;
     default:
       console.log('Unrecognized message: ' + e.data.msg);

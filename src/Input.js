@@ -40,14 +40,25 @@ class Input extends React.Component {
 
 export class InputNumber extends Input {
   render() {
-    const { name, value, label, readOnly, valid, invalidText } = this.props;
+    const { name, value, label, readOnly, valid, invalidText, validEmbed } = this.props;
     const props = { name, label };
+    const descTitle = validEmbed ?
+      <div>
+        { this.props.children }
+        { !valid &&
+          <div>
+            <strong style={{ color: 'red' }}>Error</strong>: { invalidText }
+          </div>
+        }
+      </div>
+      :
+      this.props.children;
     return (
-      <Tooltip title={ this.props.children } enterDelay={400} arrow>
+      <Tooltip title={ descTitle } enterDelay={400} arrow>
         <TextField
           fullWidth
           error={ !valid }
-          helperText={ !valid && invalidText }
+          helperText={ !valid && !validEmbed && invalidText }
           type="number"
           value={ value || '' }
           size="small"

@@ -24,18 +24,23 @@ const VERSION = 'spresso_2species';
 
 const DEFAULT_INPUT = {
   // simulation related
-  simTime:         0.03,
-  animateRate:     50,
+  simTime:          0.03,
+  animateRate:      50,
+  // numerics related
+  numGrids:         250,
+  interfaceWidth:   1.,
+  tolerance:        1e-3,
   // data related
-  numGrids:        250,
-  domainLen:       50,
-  interfaceWidth:  1.,
+  domainLen:        50,
+  current:          0.75,
+  area:             8.2832e-4,
 };
 
 const SPECIE_TYPE = [
   { label: 'TE', value: 'TE' },
   { label: 'LE', value: 'LE' },
   { label: 'Analyte', value: 'Analyte' },
+  { label: 'Background', value: 'Background' },
 ];
 
 class SimUI extends React.Component {
@@ -60,7 +65,7 @@ class SimUI extends React.Component {
         this.setState({
           t: e.data.plot.t,
           data: this.state.species.map((specie, specieIdx) => {
-            return e.data.plot.concentration_sx.subarray(specieIdx * numGrids,
+            return e.data.plot.concentration_sn.subarray(specieIdx * numGrids,
                                                          (specieIdx+1) * numGrids); 
           }),         
         });
@@ -71,33 +76,38 @@ class SimUI extends React.Component {
       case 'finished':
         this.setState({running: false});
         break;
-      case 'config':
-        const content = JSON.stringify(e.data.config, null, 2);
-        download(content, 'config.json', 'application/json');
-        break;
       default:
         console.log('Unrecognized message: ' + e.data.msg);
     }
   }
 
   inputValid() {
-    const { simTimeValid, numGridsValid, domainLenValid, animateRateValid, species } = this.state;
+    const { species } = this.state;
     return (
-      simTimeValid && numGridsValid && domainLenValid && animateRateValid &&
+      this.state.simTimeValid && this.state.animateRateValid &&
+      this.state.numGridsValid && this.state.toleranceValid && this.state.interfaceWidthValid &&
+      this.state.domainLenValid && this.state.currentValid && this.state.areaValid &&
       species.every((specie) => (specie.nameValid))
     );
   }
 
   resetHandler() {
-    if (!this.inputValid()) {
-      return;
-    }
-    const { simTime, numGrids, domainLen, animateRate, interfaceWidth, species } = this.state;
-
     const input = new SpressoInput(
-      simTime, animateRate, numGrids, domainLen, interfaceWidth, species);
+      this.state.simTime, this.state.animateRate, 
+      this.state.numGrids, this.state.tolerance, this.state.interfaceWidth, 
+      this.state.domainLen, this.state.current, this.state.area,
+      this.state.species);
+    
+    this.setState({spressoInput: input});
 
-    this.worker.postMessage({msg: 'reset', input: input});
+    try {
+      const parsedInput = input.parse();
+      this.worker.postMessage({msg: 'reset', input: parsedInput});
+    }
+    catch (err) {
+      console.error("Input", input, "cannot be parsed");
+      console.error(err);
+    }
   }
 
   validateInjection() {
@@ -124,7 +134,7 @@ class SimUI extends React.Component {
       return false;
     }
     // validate overlap
-    let intervals = this.state.species.map((specie) => {
+    const intervals = this.state.species.map((specie) => {
       const loc = parseFloat(specie.injectionLoc);
       const width = parseFloat(specie.injectionWidth);
       switch (specie.injectionType) {
@@ -164,7 +174,7 @@ class SimUI extends React.Component {
         parseFloat(val) > 0)) &&                      // check mobility is positive
         pKa.split(',').length === numValence &&       // check pKa is of same length
         pKa.replace(/\s/g, '').split(',').every((val) => (
-        parseFloat(val) > 0))) {                      // check pKa is positive
+        isFinite(val)))) {                            // check pKa is number
       return true;
     }
     // properties invalid
@@ -207,7 +217,7 @@ class SimUI extends React.Component {
           title: { text: 'Concentration Plot @ ' + this.state.t + 's' },
           xaxis: { title: { text: 'Domain [m]' } },
           yaxis: {
-            title: { text: 'Concentration [mole / m^3]' },
+            title: { text: 'Concentration [mole / m3]' },
           }
         }}
         divId='concentration_plot'
@@ -246,82 +256,143 @@ class SimUI extends React.Component {
 
     return (
       <div>
-        <Box mb={2}><Grid container spacing={1}>
-          <Grid item sm={2} key="simTime">
-            <InputNumber
-              cache
-              valid={ this.state.simTimeValid || false }
-              invalidText="Must be positive"
-              label="Simulation Time"
-              name="simTime"
-              value={ this.state.simTime }
-              defaultValue={ DEFAULT_INPUT.simTime }
-              update={(name, value) => inputUpdate(name, value, (parseFloat(value) > 0))}
-            >
-              Physical simulated time in [s]
-            </InputNumber>
+        <Box mb={2} key="basic"><Grid container>
+          <Grid item container sm={6} spacing={1} alignItems="center">
+            <Grid item sm={2} key="title"><h4>Simulation</h4></Grid>
+            <Grid item sm={4} key="simTime">
+              <InputNumber
+                cache
+                valid={ this.state.simTimeValid || false }
+                invalidText="Must be positive"
+                label="Simulation Time [s]"
+                name="simTime"
+                value={ this.state.simTime }
+                defaultValue={ DEFAULT_INPUT.simTime }
+                update={(name, value) => inputUpdate(name, value, (parseFloat(value) > 0))}
+              >
+                Physical simulated time in [s]
+              </InputNumber>
+            </Grid>
+            <Grid item sm={4} key="animateRate">
+              <InputNumber
+                cache
+                valid={ this.state.animateRateValid || false }
+                invalidText="Must be a positive integer"
+                label="Animation Rate"
+                name="animateRate"
+                update={(name, value) => inputUpdate(name, value, 
+                  Number.isInteger(parseFloat(value)) && parseInt(value) > 0)}
+                value={ this.state.animateRate }
+                defaultValue={ DEFAULT_INPUT.animateRate }
+              >
+                Update the animated graph once every this many steps of simulation. 
+                Lower this value to obtain smoother animation.<br/>
+                <strong style={{color: 'yellow'}}>Warning</strong>: 
+                  extremely small animation rate can cause the simulation 
+                  to slow down dramatically.
+              </InputNumber>
+            </Grid>
           </Grid>
-          <Grid item sm={2} key="animateRate">
-            <InputNumber
-              cache
-              valid={ this.state.animateRateValid || false }
-              invalidText="Must be a positive integer"
-              label="Animation Rate"
-              name="animateRate"
-              update={(name, value) => inputUpdate(name, value, 
-                Number.isInteger(parseFloat(value)) && parseInt(value) > 0)}
-              value={ this.state.animateRate }
-              defaultValue={ DEFAULT_INPUT.animateRate }
-            >
-              Update the animated graph once every this many steps of simulation.<br/>
-              <strong>Note</strong>: lower this value to obtain smoother animation.<br/>
-              <strong>Warning</strong>: extremely small animation rate can cause the simulation
-                                        to slow down dramatically.
-            </InputNumber>
+          <Grid item container sm={6} spacing={1} alignItems="center">
+            <Grid item sm={2} key="title"><h4>Numerics</h4></Grid>
+            <Grid item sm={3} key="numGrids">
+              <InputNumber
+                cache
+                valid={ this.state.numGridsValid || false }
+                invalidText="Must be an integer greater than 100"
+                label="# Grid Points"
+                name="numGrids"
+                update={(name, value) => inputUpdate(name, value,
+                  Number.isInteger(parseFloat(value)) && parseInt(value) > 100)}
+                value={ this.state.numGrids }
+                defaultValue={ DEFAULT_INPUT.numGrids }
+              >
+                Number of discrete grid points in the spatial domain.
+              </InputNumber>
+            </Grid>
+            <Grid item sm={3} key="tolerance">
+              <InputNumber
+                cache
+                valid={ this.state.toleranceValid || false }
+                invalidText="Must be positive"
+                label="ODE Tolerance"
+                name="tolerance"
+                update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
+                value={ this.state.tolerance }
+                defaultValue={ DEFAULT_INPUT.tolerance }
+              >
+                Absolute tolerance for ODE integration step adjustment. Lower this value
+                to speed up simulation while raise this to obtain more accurate results.<br/>
+                <strong style={{color: 'cyan'}}>Note</strong>: 
+                  Try not to set this below 1e-4, otherwise the integration 
+                  might fail due to floating point precision issues. Also,
+                  don't worry about having a tolerance as high as 1e-2 
+                  because the error estimate is the norm of the entire
+                  2D concentration error matrix.
+              </InputNumber>
+            </Grid>
+            <Grid item sm={2} key="interfaceWidth">
+              <InputNumber
+                cache
+                valid={ this.state.interfaceWidthValid || false }
+                invalidText="Must be positive"
+                label="&sigma; [mm]"
+                name="interfaceWidth"
+                update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
+                value={ this.state.interfaceWidth }
+                defaultValue={ DEFAULT_INPUT.interfaceWidth }
+                readOnly
+              >
+                Interface width in [mm] (Read Only).
+              </InputNumber>
+            </Grid>
           </Grid>
-          <Grid item sm={2} key="numGrids">
-            <InputNumber
-              cache
-              valid={ this.state.numGridsValid || false }
-              invalidText="Must be an integer greater than 100"
-              label="# Grid Points"
-              name="numGrids"
-              update={(name, value) => inputUpdate(name, value,
-                Number.isInteger(parseFloat(value)) && parseInt(value) > 100)}
-              value={ this.state.numGrids }
-              defaultValue={ DEFAULT_INPUT.numGrids }
-            >
-              Number of discrete grid points in the spatial domain.
-            </InputNumber>
-          </Grid>
-          <Grid item sm={2} key="domainLen">
-            <InputNumber
-              cache
-              valid={ this.state.domainLenValid || false }
-              invalidText="Must be positive"
-              label="Domain Length"
-              name="domainLen"
-              update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
-              value={ this.state.domainLen }
-              defaultValue={ DEFAULT_INPUT.domainLen }
-            >
-              Domain length in [mm].
-            </InputNumber>
-          </Grid>
-          <Grid item sm={1} key="interfaceWidth">
-            <InputNumber
-              cache
-              valid={ this.state.interfaceWidth || false }
-              invalidText="Must be positive"
-              label="&sigma;"
-              name="interfaceWidth"
-              update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
-              value={ this.state.interfaceWidth }
-              defaultValue={ DEFAULT_INPUT.interfaceWidth }
-              readOnly
-            >
-              Interface width in [mm] (Read Only).
-            </InputNumber>
+        </Grid></Box>
+        <Box mb={2} key="numerics"><Grid container alignItems="center">
+          <Grid item container sm={6} alignItems="center" spacing={1}>
+            <Grid item sm={2} key="title"><h4>Experiment</h4></Grid>
+            <Grid item sm={4} key="domainLen">
+              <InputNumber
+                cache
+                valid={ this.state.domainLenValid || false }
+                invalidText="Must be positive"
+                label="Domain Length [mm]"
+                name="domainLen"
+                update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
+                value={ this.state.domainLen }
+                defaultValue={ DEFAULT_INPUT.domainLen }
+              >
+                Domain length in [mm].
+              </InputNumber>
+            </Grid>
+            <Grid item sm={3} key="current">
+              <InputNumber
+                cache
+                valid={ this.state.currentValid || false }
+                invalidText="Must be positive"
+                label="Current [&mu;A]"
+                name="current"
+                update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
+                value={ this.state.current }
+                defaultValue={ DEFAULT_INPUT.current }
+              >
+                Electrical current in [&mu;A].
+              </InputNumber>
+            </Grid>
+            <Grid item sm={3} key="area">
+              <InputNumber
+                cache
+                valid={ this.state.areaValid || false }
+                invalidText="Must be positive"
+                label={ "Area [mm^2]" }
+                name="area"
+                update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
+                value={ this.state.area }
+                defaultValue={ DEFAULT_INPUT.area }
+              >
+                Cross section area of the channel in [mm<sup>2</sup>].
+              </InputNumber>
+            </Grid>
           </Grid>
           <Grid item sm={1} key="add_button">
             <Tooltip arrow title="Add a specie">
@@ -391,7 +462,7 @@ class SimUI extends React.Component {
                 </InputNumber>
               </Grid>
               }
-              {(specie.injectionType !== 'Analyte' ) && 
+              {specie.injectionType !== 'Analyte' && 
               <Grid item sm={4} key="initConcentration">
                 <InputNumber
                   label={ <span>c<sub>0</sub></span> }
@@ -402,16 +473,18 @@ class SimUI extends React.Component {
                   update={(name, value) => setSpecieSpec("initConcentration", value,
                     parseFloat(value) > 0)}
                 >
-                  Initial concentration in [mole / m^3].
+                  Initial concentration in [mole / m<sup>3</sup>].
                 </InputNumber>
               </Grid>
               }
+              {specie.injectionType !== 'Background' &&
               <Grid item sm={4} key="injectionLoc">
                 <InputNumber
                   label={ <span>x<sub>inj</sub></span> }
+                  validEmbed
                   valid={ this.state.injectionValid }
-                  invalidText={specieIdx === this.state.species.length - 1 && 
-                    "Please ensure enough concentration overlap"}
+                  invalidText="Concentration gaps present. Please bring injections 
+                               closer to each other to ensure enough concentration overlap."
                   name={ "injectionLoc" + specie.name }
                   value={ specie.injectionLoc }
                   update={(name, value) => setSpecieSpec("injectionLoc", value)}
@@ -419,11 +492,15 @@ class SimUI extends React.Component {
                   Injection Location in [mm].
                 </InputNumber>
               </Grid>
+              }
               {specie.injectionType === 'Analyte' &&
               <Grid item sm={4} key="injectionWidth">
                 <InputNumber
                   label="h"
+                  validEmbed
                   valid={ this.state.injectionValid }
+                  invalidText="Concentration gaps present. Please bring injections 
+                               closer to each other to ensure enough concentration overlap."
                   name={ "injectionWidth" + specie.name }
                   value={ specie.injectionWidth }
                   update={(name, value) => setSpecieSpec("injectionWidth", value)}
@@ -445,7 +522,11 @@ class SimUI extends React.Component {
                     this.validateProperties(specie, 'valence', value), 'propertyValid')}
                 >
                   Valence electrical charges. <br/>
-                  <strong>Format:</strong> a comma seperated list of integers (e.g. 2, 1, -1).
+                  <strong style={{color: 'cyan'}}>Format</strong>:
+                    a comma seperated list of integers (e.g. 2, 1, -1). <br/>
+                  <strong style={{color: 'yellow'}}>Warning</strong>:
+                    Valences should NOT discontinue, i.e. a specie with a -2 valence must 
+                    also has a -1 valence.
                 </InputText>
               </Grid>
               <Grid item sm={4} key="mobility">
@@ -458,8 +539,9 @@ class SimUI extends React.Component {
                     this.validateProperties(specie, 'mobility', value), 'propertyValid')}
                 >
                   Mobility at each valence in [10<sup>-9</sup>m<sup>2</sup>/(V&middot;s)]. <br/>
-                  <strong>Format:</strong> a comma seperated list of numbers (must have the
-                  same number of entries as the number of valences.
+                  <strong style={{color: 'cyan'}}>Format</strong>: 
+                    a comma seperated list of numbers (must have the
+                    same number of entries as the number of valences.
                 </InputText>
               </Grid>
               <Grid item sm={4} key="pKa">
@@ -472,8 +554,9 @@ class SimUI extends React.Component {
                     this.validateProperties(specie, 'pKa', value), 'propertyValid')}
                 >
                   Negative log dissociation constant at each valence. <br/>
-                  <strong>Format:</strong> a comma seperated list of numbers (must have the
-                  same number of entries as the number of valences.
+                  <strong style={{color: 'cyan'}}>Format</strong>: 
+                    a comma seperated list of numbers (must have the
+                    same number of entries as the number of valences.
                 </InputText>
               </Grid>
             </Grid>
@@ -498,9 +581,10 @@ class SimUI extends React.Component {
             </Button>
           </Grid>
           <Grid item>
-            <Button variant="contained" onClick={() =>
-              this.worker.postMessage({msg: "config"})
-            }>
+            <Button variant="contained" onClick={() => {
+              const content = JSON.stringify(this.state.spressoInput, null, 2);
+              download(content, 'config.json', 'application/json');
+            }}>
               Save Config
             </Button>
           </Grid>

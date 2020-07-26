@@ -48,22 +48,26 @@ class SpressoTF(tf.Module):
 
         ones_n1 = tf.ones((num_grid, 1))
         cH_log_n = tf.math.log(cH_n)
-        cH_mat_log_nd = tf.tile(cH_log_n[:, None], (1, max_deg))
-        cH_mat_log_cumsum_nd = tf.cumsum(cH_mat_log_nd, axis=-1, exclusive=True)
+        cH_mat_log_nd = tf.tile(tf.expand_dims(cH_log_n, axis=1), (1, max_deg))
+        cH_mat_log_cumsum_nd = tf.cumsum(cH_mat_log_nd, axis=1, exclusive=True)
         cH_mat_nd = tf.exp(cH_mat_log_cumsum_nd)
-        temp_mat_sn = tf.reduce_sum(l_mat_sd[:, None, :] * cH_mat_nd[None], axis=-1)
+        temp_mat_sn = tf.reduce_sum(tf.expand_dims(l_mat_sd, axis=1) * \
+                                    tf.expand_dims(cH_mat_nd, axis=0), axis=2)
 
         m1_mat_sn = c_mat_sn / temp_mat_sn
-        ciz_cube_snd = l_mat_sd[:, None, :] * cH_mat_nd[None] * m1_mat_sn[..., None]
+        ciz_cube_snd = tf.expand_dims(l_mat_sd, axis=1) * \
+                       tf.expand_dims(cH_mat_nd, axis=0) * \
+                       tf.expand_dims(m1_mat_sn, axis=2)
 
-        temp_z_sn = tf.reduce_sum(
-            val_mat_sd[:, None, :] * l_mat_sd[:, None, :] * cH_mat_nd[None], axis=-1)
-        rhs_den_n = tf.reduce_sum(
-            ciz_cube_snd * val_mat_sd[:, None, :]**2 - \
-                approx * ciz_cube_snd * val_mat_sd[:, None, :] * \
-                      temp_z_sn[..., None] / temp_mat_sn[..., None], 
-        axis=(0,2))
-        rhs_num_n = tf.reduce_sum(ciz_cube_snd * val_mat_sd[:, None, :], axis=(0,2))
+        temp_z_sn = tf.reduce_sum(tf.expand_dims(val_mat_sd, axis=1) * \
+                                  tf.expand_dims(l_mat_sd, axis=1) * \
+                                  tf.expand_dims(cH_mat_nd, axis=0), axis=2)
+        rhs_den_n = tf.reduce_sum(tf.reduce_sum(
+            ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1)**2 - \
+                approx * ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1) * \
+                tf.expand_dims(temp_z_sn, axis=2) / tf.expand_dims(temp_mat_sn, axis=2), 
+        axis=2), axis=0)
+        rhs_num_n = tf.reduce_sum(ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1), axis=(0,2))
 
         F_n = rhs_num_n + cH_n - Kw / cH_n
         F_prime_n = rhs_den_n / cH_n + 1.0 + Kw / cH_n**2
@@ -92,7 +96,9 @@ class SpressoTF(tf.Module):
                     self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd, 0.)
                 inc_n = F_n / F_prime_n
 
-        giz_cube_snd = l_mat_sd[:, None, :] * cH_mat_nd[None] / temp_mat_sn[..., None]
+        giz_cube_snd = tf.expand_dims(l_mat_sd, axis=1) * \
+                       tf.expand_dims(cH_mat_nd, axis=0) / \
+                       tf.expand_dims(temp_mat_sn, axis=2)
 
         return cH_n, giz_cube_snd
 
@@ -101,13 +107,14 @@ class SpressoTF(tf.Module):
                                 l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd):
         cH_n, giz_cube_snd = self.lz_calc_equilibrium(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
 
-        u_cube_snd = u_mat_sd[:, None, :] * giz_cube_snd
-        d_cube_snd = d_mat_sd[:, None, :] * giz_cube_snd
+        u_cube_snd = tf.expand_dims(u_mat_sd, axis=1) * giz_cube_snd
+        d_cube_snd = tf.expand_dims(d_mat_sd, axis=1) * giz_cube_snd
 
         u_mat_sn = tf.reduce_sum(u_cube_snd, axis=2)
         d_mat_sn = tf.reduce_sum(d_cube_snd, axis=2)
-        alpha_mat_sn = F * tf.reduce_sum(val_mat_sd[:, None, :] * u_cube_snd, axis=2)
-        beta_mat_sn = F * tf.reduce_sum(val_mat_sd[:, None, :] * d_cube_snd, axis=2)
+        val_mat_s1d = tf.expand_dims(val_mat_sd, axis=1)
+        alpha_mat_sn = F * tf.reduce_sum(val_mat_s1d * u_cube_snd, axis=2)
+        beta_mat_sn = F * tf.reduce_sum(val_mat_s1d * d_cube_snd, axis=2)
 
         sig_vec_n = tf.reduce_sum(alpha_mat_sn * c_mat_sn, axis=0) + \
                     F * (uH * cH_n + uOH * Kw / cH_n)
@@ -126,21 +133,24 @@ class SpressoTF(tf.Module):
     def calc_flux(self, c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx):
         num_species = tf.shape(c_mat_sn)[0]
 
-        elec_flux_factor0_sn = u_mat_sn * c_mat_sn / sig_vec_n[None]
-        elec_flux_factor_sn = current * u_mat_sn / sig_vec_n[None] * c_mat_sn
+        sig_vec_1n = tf.expand_dims(sig_vec_n, axis=0)
+        s_vec_1n = tf.expand_dims(s_vec_n, axis=0)
+
+        elec_flux_factor0_sn = u_mat_sn * c_mat_sn / sig_vec_1n
+        elec_flux_factor_sn = current * u_mat_sn / sig_vec_1n * c_mat_sn
 
         adv_flux_sm = 0.5 * (elec_flux_factor_sn[:, 1:] + elec_flux_factor_sn[:, :-1])
         adv_flux_left_s = elec_flux_factor_sn[:, 0]
         adv_flux_right_s = elec_flux_factor_sn[:, -1]
 
-        v_max_sm = tf.abs(0.5 * current * (u_mat_sn[:, 1:] / sig_vec_n[None, 1:] + \
-                                           u_mat_sn[:, :-1] / sig_vec_n[None, :-1]))
+        v_max_sm = tf.abs(0.5 * current * (u_mat_sn[:, 1:] / sig_vec_1n[:, 1:] + \
+                                           u_mat_sn[:, :-1] / sig_vec_1n[:, :-1]))
         v_max_1m = tf.reduce_max(v_max_sm, axis=0, keepdims=True)
 
         molecular_diff_flux_sm = (d_mat_sn[:, 1:] * c_mat_sn[:, 1:] - \
                                   d_mat_sn[:, :-1] * c_mat_sn[:, :-1]) / dx;
         elec_diff_flux_sm = .5 * (elec_flux_factor0_sn[:, 1:] + elec_flux_factor0_sn[:, :-1]) * \
-                                 (s_vec_n[None, 1:] - s_vec_n[None, :-1]) / dx
+                                 (s_vec_1n[:, 1:] - s_vec_1n[:, :-1]) / dx
         dc_mat_so = tf.pad(c_mat_sn[:, 1:] - c_mat_sn[:, :-1], [[0, 0], [1, 1]])
         limit_mat_sm = self.limiter_func(dc_mat_so[:, 2:], dc_mat_so[:, :-2])
 
@@ -153,7 +163,7 @@ class SpressoTF(tf.Module):
         gradient_left_s1 = tf.expand_dims((adv_flux_left_s - flux_sm[:, 0]) / dx, axis=1)
         gradient_right_s1 = tf.expand_dims((flux_sm[:, -1] - adv_flux_right_s) / dx, axis=1)
 
-        return tf.concat([gradient_left_s1, gradient_mid_sl, gradient_right_s1], axis=-1)
+        return tf.concat([gradient_left_s1, gradient_mid_sl, gradient_right_s1], axis=1)
 
     def integrate(self, c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx, dt):
         calc_flux = lambda input_sn: self.calc_flux(input_sn, 
@@ -198,14 +208,15 @@ class SpressoTF(tf.Module):
         # perform integration
         c_mat_5_sn = c_mat_sn
         error = tolerance + 1.
-        while error > tolerance:
-            c_mat_5_sn, error = self.integrate(
-                c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx, dt)
-            dt_scale = .9 * (tolerance / error)**(1/6)
-            dt_scale = tf.clip_by_value(dt_scale, 0.1, 5)
-            dt *= dt_scale
+        dt_scale = 1.
+        #while error > tolerance:
+        #    dt *= dt_scale
+        #    c_mat_5_sn, error = self.integrate(
+        #        c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx, dt)
+        #    dt_scale = .9 * (tolerance / error)**(1/6)
+        #    dt_scale = tf.clip_by_value(dt_scale, 0.1, 5)
 
-        return cH_n, c_mat_5_sn, dt 
+        return cH_n, c_mat_5_sn, dt, dt*dt_scale
 
 def parse_args():
     parser = argparse.ArgumentParser()
