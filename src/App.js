@@ -20,12 +20,12 @@ import download from 'downloadjs';
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect } from './Input';
 
-const VERSION = 'spressov2';
+const VERSION = 'spresso_v1';
 
 const DEFAULT_INPUT = {
   // simulation related
   simTime:          '50',
-  animateRate:      '20',
+  animateRate:      '5',
   // numerics related
   numGrids:         '1000',
   interfaceWidth:   '1',
