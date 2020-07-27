@@ -99,7 +99,7 @@ class SimUI extends React.Component {
       data: [],
       x: undefined,
       t: undefined,
-      run: false,
+      running: false,
       species: JSON.parse(localStorage.getItem("species")) || DEFAULT_SPECIES,
       injectionValid: JSON.parse(localStorage.getItem("injectionValid") || false),
     }
@@ -145,18 +145,14 @@ class SimUI extends React.Component {
     );
   }
 
-  getSpressoInput() {
-    return new SpressoInput(
+  resetHandler() {
+    this.setState({running: false});
+
+    const input = new SpressoInput(
       this.state.simTime, this.state.animateRate, 
       this.state.numGrids, this.state.tolerance, this.state.interfaceWidth, 
       this.state.domainLen, this.state.current, this.state.area,
       this.state.species);
-  }
-
-  resetHandler() {
-    this.setState({running: false});
-
-    const input = this.getSpressoInput();
     
     try {
       const parsedInput = input.parse();
@@ -635,7 +631,7 @@ class SimUI extends React.Component {
           );
         })}
         <Box mb={3}><Grid container alignItems="center" spacing={1}>
-          <Grid item>
+          <Grid item key="start_pause">
             { start_pause }
           </Grid>
           {!this.state.running &&
@@ -645,14 +641,43 @@ class SimUI extends React.Component {
               </Button>
             </Grid>
           }
-          <Grid item>
-            <Button variant="contained" onClick={() => {
-              const content = JSON.stringify(this.getSpressoInput(), null, 2);
-              download(content, 'config.json', 'application/json');
-            }}>
-              Save Config
-            </Button>
-          </Grid>
+          {!this.state.running &&
+            <Grid item key="saveConfig">
+              <Button variant="contained" onClick={() => {
+                const content = JSON.stringify({
+                  ...this.state,
+                  data: undefined,
+                  x: undefined,
+                  t: undefined,
+                  running: undefined,
+                }, null, 2);
+                download(content, 'config.json', 'application/json');
+              }}>
+                Save Config
+              </Button>
+            </Grid>
+          }
+          {!this.state.running &&
+            <Grid item key="loadConfig">
+              <Button variant="contained" component="label">
+                Load Config
+                <input
+                  type="file"
+                  name="config"
+                  style={{ display: 'none' }}
+                  onChange={(event) => {
+                    const file = event.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (readerEvent) => {
+                      const config = JSON.parse(readerEvent.target.result);
+                      this.setState(config);
+                    };
+                    reader.readAsText(file);
+                  }}
+                />
+              </Button>
+            </Grid>
+          }
         </Grid></Box>
         <Grid container>
           { plot }
