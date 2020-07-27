@@ -186,12 +186,10 @@ export class Spresso {
       dx: tf.scalar(this.dx, 'float32'),
       dt: this.dt,
       tolerance: tf.scalar(this.input.tolerance, 'float32'),
-    });
-
-    console.log(new_cH_n.shape, new_concentration_sn.shape, dt.shape, new_dt.shape);
+    }, ['Identity:0', 'Identity_1:0', 'Identity_2:0', 'Identity_3:0']);
 
     const t = this.getCurrentTime();
-    this.time_t.push(t + await dt.data());
+    this.time_t.push(t + (await dt.data())[0]);
     this.concentration_tsn.push(new_concentration_sn);
     this.cH_n = new_cH_n;
     this.dt = new_dt;

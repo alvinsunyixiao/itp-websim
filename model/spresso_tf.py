@@ -75,37 +75,25 @@ class SpressoTF(tf.Module):
         return F_n, F_prime_n, cH_mat_nd, temp_mat_sn
 
     def lz_calc_equilibrium(self, cH_n, c_mat_sn, l_mat_sd, val_mat_sd):
-        cH_backup_n = cH_n
         F_n, F_prime_n, cH_mat_nd, temp_mat_sn = \
-            self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd, 1.0)
+            self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd, 0.)
         inc_n = F_n / F_prime_n
-        while tf.norm(F_n) > 1e-6 and tf.norm(inc_n) > 1e-9 and tf.reduce_min(cH_n) > 0.:
+        while tf.norm(F_n) > 1e-5 and tf.norm(inc_n) > 1e-9:
             cH_n = cH_n - inc_n 
-            F_n, F_prime_n, cH_mat_nd, temp_mat_sn = \
-                self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd, 1.0)
-            inc_n = F_n / F_prime_n
-        # fast optimization failed, do it slowly
-        if tf.reduce_min(cH_n) < 0.0:
-            cH_n = cH_backup_n
             F_n, F_prime_n, cH_mat_nd, temp_mat_sn = \
                 self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd, 0.)
             inc_n = F_n / F_prime_n
-            while tf.norm(F_n) > 1e-6 and tf.norm(inc_n) > 1e-9:
-                cH_n = cH_n - inc_n 
-                F_n, F_prime_n, cH_mat_nd, temp_mat_sn = \
-                    self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd, 0.)
-                inc_n = F_n / F_prime_n
 
         giz_cube_snd = tf.expand_dims(l_mat_sd, axis=1) * \
                        tf.expand_dims(cH_mat_nd, axis=0) / \
                        tf.expand_dims(temp_mat_sn, axis=2)
 
-        return cH_n, giz_cube_snd
-
+        return cH_n,giz_cube_snd 
 
     def calc_spatial_properties(self, cH_n, c_mat_sn, 
                                 l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd):
-        cH_n, giz_cube_snd = self.lz_calc_equilibrium(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
+        cH_n, giz_cube_snd = \
+            self.lz_calc_equilibrium(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
 
         u_cube_snd = tf.expand_dims(u_mat_sd, axis=1) * giz_cube_snd
         d_cube_snd = tf.expand_dims(d_mat_sd, axis=1) * giz_cube_snd
@@ -132,6 +120,7 @@ class SpressoTF(tf.Module):
 
     def calc_flux(self, c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx):
         num_species = tf.shape(c_mat_sn)[0]
+        num_grid = tf.shape(c_mat_sn)[1]
 
         sig_vec_1n = tf.expand_dims(sig_vec_n, axis=0)
         s_vec_1n = tf.expand_dims(s_vec_n, axis=0)
@@ -139,29 +128,29 @@ class SpressoTF(tf.Module):
         elec_flux_factor0_sn = u_mat_sn * c_mat_sn / sig_vec_1n
         elec_flux_factor_sn = current * u_mat_sn / sig_vec_1n * c_mat_sn
 
-        adv_flux_sm = 0.5 * (elec_flux_factor_sn[:, 1:] + elec_flux_factor_sn[:, :-1])
+        adv_flux_sm = 0.5 * (elec_flux_factor_sn[:, 1:] + elec_flux_factor_sn[:, :num_grid-1])
         adv_flux_left_s = elec_flux_factor_sn[:, 0]
-        adv_flux_right_s = elec_flux_factor_sn[:, -1]
+        adv_flux_right_s = elec_flux_factor_sn[:, num_grid-1]
 
         v_max_sm = tf.abs(0.5 * current * (u_mat_sn[:, 1:] / sig_vec_1n[:, 1:] + \
-                                           u_mat_sn[:, :-1] / sig_vec_1n[:, :-1]))
+                                           u_mat_sn[:, :num_grid-1] / sig_vec_1n[:, :num_grid-1]))
         v_max_1m = tf.reduce_max(v_max_sm, axis=0, keepdims=True)
 
         molecular_diff_flux_sm = (d_mat_sn[:, 1:] * c_mat_sn[:, 1:] - \
-                                  d_mat_sn[:, :-1] * c_mat_sn[:, :-1]) / dx;
-        elec_diff_flux_sm = .5 * (elec_flux_factor0_sn[:, 1:] + elec_flux_factor0_sn[:, :-1]) * \
-                                 (s_vec_1n[:, 1:] - s_vec_1n[:, :-1]) / dx
-        dc_mat_so = tf.pad(c_mat_sn[:, 1:] - c_mat_sn[:, :-1], [[0, 0], [1, 1]])
-        limit_mat_sm = self.limiter_func(dc_mat_so[:, 2:], dc_mat_so[:, :-2])
+                                  d_mat_sn[:, :num_grid-1] * c_mat_sn[:, :num_grid-1]) / dx;
+        elec_diff_flux_sm = .5 * (elec_flux_factor0_sn[:, 1:] + elec_flux_factor0_sn[:, :num_grid-1]) * \
+                                 (s_vec_1n[:, 1:] - s_vec_1n[:, :num_grid-1]) / dx
+        dc_mat_so = tf.pad(c_mat_sn[:, 1:] - c_mat_sn[:, :num_grid-1], [[0, 0], [1, 1]])
+        limit_mat_sm = self.limiter_func(dc_mat_so[:, 2:], dc_mat_so[:, :num_grid-1])
 
-        num_diff_sm = 0.5 * v_max_1m * (c_mat_sn[:, 1:] - c_mat_sn[:, :-1] - limit_mat_sm)
+        num_diff_sm = 0.5 * v_max_1m * (c_mat_sn[:, 1:] - c_mat_sn[:, :num_grid-1] - limit_mat_sm)
         diff_flux_sm = elec_diff_flux_sm - molecular_diff_flux_sm
 
         flux_sm = adv_flux_sm + diff_flux_sm - num_diff_sm
 
-        gradient_mid_sl = -(flux_sm[:,1:]-flux_sm[:,:-1])/dx
+        gradient_mid_sl = -(flux_sm[:,1:]-flux_sm[:,:num_grid-2])/dx
         gradient_left_s1 = tf.expand_dims((adv_flux_left_s - flux_sm[:, 0]) / dx, axis=1)
-        gradient_right_s1 = tf.expand_dims((flux_sm[:, -1] - adv_flux_right_s) / dx, axis=1)
+        gradient_right_s1 = tf.expand_dims((flux_sm[:, num_grid-2] - adv_flux_right_s) / dx, axis=1)
 
         return tf.concat([gradient_left_s1, gradient_mid_sl, gradient_right_s1], axis=1)
 
@@ -209,12 +198,12 @@ class SpressoTF(tf.Module):
         c_mat_5_sn = c_mat_sn
         error = tolerance + 1.
         dt_scale = 1.
-        #while error > tolerance:
-        #    dt *= dt_scale
-        #    c_mat_5_sn, error = self.integrate(
-        #        c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx, dt)
-        #    dt_scale = .9 * (tolerance / error)**(1/6)
-        #    dt_scale = tf.clip_by_value(dt_scale, 0.1, 5)
+        while error > tolerance:
+            dt *= dt_scale
+            c_mat_5_sn, error = self.integrate(
+                c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx, dt)
+            dt_scale = .9 * (tolerance / error)**(1/6)
+            dt_scale = tf.clip_by_value(dt_scale, 0.1, 5)
 
         return cH_n, c_mat_5_sn, dt, dt*dt_scale
 

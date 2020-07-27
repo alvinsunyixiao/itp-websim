@@ -1,6 +1,5 @@
 import { Spresso } from './Spresso';
 import * as tf from '@tensorflow/tfjs';
-import { setWasmPath } from '@tensorflow/tfjs-backend-wasm';
 
 let spresso = undefined;
 let running = false;
@@ -8,12 +7,19 @@ let ready = false;
 let updated = true;
 let model = undefined;
 
-setWasmPath('/tfjs-backend-wasm.wasm');
-tf.setBackend('webgl').then(async () => {
+const initBackend = async () => {
+  tf.enableProdMode();
+  if (tf.ENV.getBool('WEBGL_RENDER_FLOAT32_CAPABLE')) {
+    await tf.setBackend('webgl');
+  }
+  else {
+    await tf.setBackend('cpu');
+  }
   model = await tf.loadGraphModel('/spresso_tf/model.json');
-  console.log("Tensorflow using " + tf.getBackend() + " backend.");
-  ready = true;
-});
+  postMessage({msg: 'init', backend: tf.getBackend()});
+};
+
+initBackend().then(() => { ready = true; });
 
 async function requestUpdate(updateX=false) {
   if (!spresso) {
@@ -62,6 +68,7 @@ onmessage = function(e) {
   }
   switch (e.data.msg) {
     case 'reset':
+      running = false;
       reset(e.data.input).catch((err) => {
         console.warn("Input invalid: ", err);
       });

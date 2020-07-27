@@ -20,21 +20,70 @@ import download from 'downloadjs';
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect } from './Input';
 
-const VERSION = 'spresso_2species';
+const VERSION = 'spressov2';
 
 const DEFAULT_INPUT = {
   // simulation related
-  simTime:          0.03,
-  animateRate:      50,
+  simTime:          '50',
+  animateRate:      '20',
   // numerics related
-  numGrids:         250,
-  interfaceWidth:   1.,
-  tolerance:        1e-3,
+  numGrids:         '1000',
+  interfaceWidth:   '1',
+  tolerance:        '1e-2',
   // data related
-  domainLen:        50,
-  current:          0.75,
-  area:             8.2832e-4,
+  domainLen:        '40',
+  current:          '10',
+  area:             '1400e-6',
 };
+
+const DEFAULT_SPECIES = [
+  {
+    name:               'HCl',
+    injectionType:      'LE',
+    injectionLoc:       '12',
+    initConcentration:  '100',
+    valence:            '-1',
+    mobility:           '79.1',
+    pKa:                '-2',
+  },
+  {
+    name:               'Hepes',
+    injectionType:      'TE',
+    injectionLoc:       '12',
+    initConcentration:  '100',
+    valence:            '-1',
+    mobility:           '26',
+    pKa:                '7.2',
+  },
+  {
+    name:               'Acetic Acid',
+    injectionType:      'Analyte',
+    injectionLoc:       '12',
+    injectionWidth:     '2',
+    injectionAmount:    '140',
+    valence:            '-1',
+    mobility:           '42.4',
+    pKa:                '4.756',
+  },
+  {
+    name:               'Acid 2',
+    injectionType:      'Analyte',
+    injectionLoc:       '12',
+    injectionWidth:     '2',
+    injectionAmount:    '120',
+    valence:            '-1',
+    mobility:           '52.4',
+    pKa:                '4',
+  },
+  {
+    name:               'Tris',
+    injectionType:      'Background',
+    initConcentration:  '200',
+    valence:            '1',
+    mobility:           '29',
+    pKa:                '8.076',
+  },
+];
 
 const SPECIE_TYPE = [
   { label: 'TE', value: 'TE' },
@@ -51,7 +100,7 @@ class SimUI extends React.Component {
       x: undefined,
       t: undefined,
       run: false,
-      species: JSON.parse(localStorage.getItem("species")) || [],
+      species: JSON.parse(localStorage.getItem("species")) || DEFAULT_SPECIES,
       injectionValid: JSON.parse(localStorage.getItem("injectionValid") || false),
     }
     this.worker = new Worker('./worker.js', { type: 'module' });
@@ -76,6 +125,9 @@ class SimUI extends React.Component {
       case 'finished':
         this.setState({running: false});
         break;
+      case 'init':
+        console.log('TF is using ' + e.data.backend + ' backend.');
+        break;
       default:
         console.log('Unrecognized message: ' + e.data.msg);
     }
@@ -87,19 +139,25 @@ class SimUI extends React.Component {
       this.state.simTimeValid && this.state.animateRateValid &&
       this.state.numGridsValid && this.state.toleranceValid && this.state.interfaceWidthValid &&
       this.state.domainLenValid && this.state.currentValid && this.state.areaValid &&
-      species.every((specie) => (specie.nameValid))
+      this.state.injectionValid &&
+      species.every((specie) => 
+        (specie.nameValid && specie.propertyValid))
     );
   }
 
-  resetHandler() {
-    const input = new SpressoInput(
+  getSpressoInput() {
+    return new SpressoInput(
       this.state.simTime, this.state.animateRate, 
       this.state.numGrids, this.state.tolerance, this.state.interfaceWidth, 
       this.state.domainLen, this.state.current, this.state.area,
       this.state.species);
-    
-    this.setState({spressoInput: input});
+  }
 
+  resetHandler() {
+    this.setState({running: false});
+
+    const input = this.getSpressoInput();
+    
     try {
       const parsedInput = input.parse();
       this.worker.postMessage({msg: 'reset', input: parsedInput});
@@ -145,15 +203,16 @@ class SimUI extends React.Component {
         case 'Analyte':
           return {left: loc - width/2, right: loc + width/2};
         default:
-          return {left: 0., right: domainLen};
+          return {left: 0., right: 0.};
       }
     }).sort((a, b) => a.left - b.left);
-    intervals.unshift({left: -1., right: 0.});
     intervals.push({left: domainLen, right: domainLen + 1});
+    let right = 0;
     for (let i = 0; i < intervals.length - 1; ++i) {
-      if (intervals[i].right < intervals[i+1].left) {
+      if (right < intervals[i].left) {
         return false;
       }
+      right = Math.max(right, intervals[i].right);
     }
     return true;
   }
@@ -185,7 +244,11 @@ class SimUI extends React.Component {
     if (prevState.simTime !== this.state.simTime ||
         prevState.animateRate !== this.state.animateRate ||
         prevState.numGrids !== this.state.numGrids ||
+        prevState.tolerance !== this.state.tolerance ||
+        prevState.interfaceWidth !== this.state.interfaceWidth ||
         prevState.domainLen !== this.state.domainLen ||
+        prevState.current !== this.state.current ||
+        prevState.area !== this.state.area ||
         prevState.species !== this.state.species) {
       this.resetHandler();
     }
@@ -241,6 +304,7 @@ class SimUI extends React.Component {
         variant="contained" 
         color="primary"
         endIcon={<PlayArrowIcon/>} 
+        disabled={ !this.inputValid() }
         onClick={() => {
           this.setState({running: true});
           this.worker.postMessage({msg: 'start'});
@@ -288,8 +352,7 @@ class SimUI extends React.Component {
                 Update the animated graph once every this many steps of simulation. 
                 Lower this value to obtain smoother animation.<br/>
                 <strong style={{color: 'yellow'}}>Warning</strong>: 
-                  extremely small animation rate can cause the simulation 
-                  to slow down dramatically.
+                  extremely small animation rate can potentially slow down the simulation.
               </InputNumber>
             </Grid>
           </Grid>
@@ -327,8 +390,8 @@ class SimUI extends React.Component {
                   Try not to set this below 1e-4, otherwise the integration 
                   might fail due to floating point precision issues. Also,
                   don't worry about having a tolerance as high as 1e-2 
-                  because the error estimate is the norm of the entire
-                  2D concentration error matrix.
+                  because the error estimate is the norm of the entire unnormalized
+                  concentration error matrix.
               </InputNumber>
             </Grid>
             <Grid item sm={2} key="interfaceWidth">
@@ -575,14 +638,16 @@ class SimUI extends React.Component {
           <Grid item>
             { start_pause }
           </Grid>
-          <Grid item>
-            <Button color="secondary" variant="contained" onClick={() => this.resetHandler()}>
-              Reset
-            </Button>
-          </Grid>
+          {!this.state.running &&
+            <Grid item>
+              <Button color="secondary" variant="contained" onClick={() => this.resetHandler()}>
+                Reset
+              </Button>
+            </Grid>
+          }
           <Grid item>
             <Button variant="contained" onClick={() => {
-              const content = JSON.stringify(this.state.spressoInput, null, 2);
+              const content = JSON.stringify(this.getSpressoInput(), null, 2);
               download(content, 'config.json', 'application/json');
             }}>
               Save Config
