@@ -26,10 +26,11 @@ async function requestUpdate() {
     return;
   }
   updated = false;
+  const pH_n = tf.tidy(() => spresso.cH_n.div(1e3).log().div(-Math.log(10)));
   const plot = {
     x: await spresso.grid_n.data(),
     concentration_sn: await spresso.concentration_sn.data(),
-    cH_n: await spresso.cH_n.data(),
+    pH_n: await pH_n.data(),
   }
   postMessage({msg: 'update', plot: plot, t: spresso.t});
 }

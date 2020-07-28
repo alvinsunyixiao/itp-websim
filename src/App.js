@@ -101,9 +101,9 @@ class SimUI extends React.Component {
       config: {},
       layout: {
         xaxis: { title: { text: 'Domain [m]' } },
-        yaxis: {
-          title: { text: 'Concentration [mole / m3]' },
-        }
+        yaxis: { title: { text: 'Concentration [mole / m3]' } },
+        yaxis2: { title: 'pH', overlaying: 'y', side: 'right' },
+        legend: { x: 1.1, },
       },
       // others
       running: false,
@@ -120,16 +120,23 @@ class SimUI extends React.Component {
         const { numGrids } = this.state;
         this.setState({
           data: this.state.species.map((specie, specieIdx) => ({
-            ...(this.state.data.length === this.state.species.length ?
+            ...(this.state.data.length === this.state.species.length + 1?
                 this.state.data[specieIdx] : {}),
             x: e.data.plot.x,
             y: e.data.plot.concentration_sn.subarray(specieIdx * numGrids,
                                                      (specieIdx+1) * numGrids),
             name: specie.name + ' -- ' + specie.injectionType,
-          })),
+          })).concat([{
+            ...(this.state.data.length === this.state.species.length + 1?
+                this.state.data[this.state.species.length] : {}),
+            x: e.data.plot.x,
+            y: e.data.plot.pH_n,
+            name: 'pH',
+            yaxis: 'y2',
+          }]),
           layout: {
             ...this.state.layout, 
-            title: { text: 'Concentration Plot @ ' + e.data.t.toFixed(4) + 's' },
+            title: { text: 'Concentration / pH @ ' + e.data.t.toFixed(4) + 's' },
           },
         });
         break;
@@ -651,8 +658,9 @@ class SimUI extends React.Component {
                 const content = JSON.stringify({
                   ...this.state,
                   data: undefined,
-                  x: undefined,
-                  t: undefined,
+                  layout: undefined,
+                  config: undefined,
+                  frames: undefined,
                   running: undefined,
                 }, null, 2);
                 download(content, 'config.json', 'application/json');
