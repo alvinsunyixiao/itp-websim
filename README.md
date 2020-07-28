@@ -1,4 +1,4 @@
-# Spresso Web - An  Isotachphoresis Simulator
+# Spresso Web - An Isotachphoresis Simulator
 
 This project is a web based GPU-accelerated re-implementation of 
 [Spresso](http://stanfordspresso.blogspot.com/) (Stanford Public Release Electrophoretic 
@@ -13,11 +13,26 @@ High dimensional array processing is done via
 a TensorFlow computation graph [here](model/spresso_tf.py). The graph is serialized and 
 saved as a [TF SavedModel](https://www.tensorflow.org/guide/saved_model).
 The model is then loaded by the JavaScript frontend, and inference is done by executing
-the graph. The computation can be accelerated both on GPU (via
-WebGL) and CPU (via WebAssembly), thanks to 
-[tfjs-backend-webgl](https://github.com/tensorflow/tfjs/tree/master/tfjs-backend-webgl)
-and
-[tfjs-backend-wasm](https://github.com/tensorflow/tfjs/tree/master/tfjs-backend-wasm).
+the graph. The computation can be accelerated on GPU (via WebGL) per device supports, thanks to 
+[tfjs-backend-webgl](https://github.com/tensorflow/tfjs/tree/master/tfjs-backend-webgl).
+CPU acceleration (via WebAssembly) is unfortunately not yet supported. It is mainly 
+awaiting upstream 
+[tfjs-backend-wasm](https://github.com/tensorflow/tfjs/tree/master/tfjs-backend-wasm) 
+supports for `cumsum` operator.
+
+## Project Structure
+
+    |-- model
+    |   |-- spresso_tf.py   # Tensorflow 2.x implementation of Spresso simulation step
+    |-- public              # directory for all statically served files
+    |   |-- spresso_tf      # directory that stores the serialized simulation model
+    |-- src                 # all JS / CSS source files
+    |   |-- App.js          # top level simulation UI interface
+    |   |-- Input.js        # encapsulation of commonly used input elements
+    |   |-- Spresso.js      # encapsulation of spresso simulation states management
+    |   |-- worker.js       # a seperate web worker that runs the simulation
+    |-- config-overrides.js # react-app-rewired custom configurations
+    |-- package.json        # library dependancies
 
 ## Serving
 
