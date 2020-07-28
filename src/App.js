@@ -120,6 +120,8 @@ class SimUI extends React.Component {
         const { numGrids } = this.state;
         this.setState({
           data: this.state.species.map((specie, specieIdx) => ({
+            ...(this.state.data.length === this.state.species.length ?
+                this.state.data[specieIdx] : {}),
             x: e.data.plot.x,
             y: e.data.plot.concentration_sn.subarray(specieIdx * numGrids,
                                                      (specieIdx+1) * numGrids),
@@ -284,17 +286,19 @@ class SimUI extends React.Component {
       :
       'Loading';
     const start_pause = this.state.running ?
-      <Button 
-        variant="contained" 
-        color="default"
-        endIcon={<PauseIcon/>} 
-        onClick={() => {
-          this.setState({running: false});
-          this.worker.postMessage({msg: 'pause'});
-        }}
-      >
-        Pause
-      </Button>
+      <Tooltip arrow title="might not stop immediately since the simulation runs in
+                            a seperate thread from the main UI">
+        <Button
+          variant="contained"
+          color="default"
+          endIcon={<PauseIcon/>}
+          onClick={() => {
+            this.worker.postMessage({msg: 'pause'});
+          }}
+        >
+          Pause
+        </Button>
+      </Tooltip>
       :
       <Button 
         variant="contained" 

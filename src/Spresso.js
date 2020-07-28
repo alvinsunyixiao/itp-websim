@@ -99,11 +99,10 @@ export class Spresso {
     this.input = input;
     this.model = model;
     this.dx = input.domainLen / input.numGrids;
-    this.dt = tf.scalar(1e-3, 'float32');
     this.step = 0;
     const grid_n_arr = range(0, input.domainLen, this.dx);
     this.grid_n = tf.tensor1d(grid_n_arr.toArray());
-    this.time_t = [0];
+    this.t = 0.;
     // initial concentration
     const concentration_sn = input.species.map(specie => {
       const { interfaceWidth } = input;
@@ -142,8 +141,12 @@ export class Spresso {
       }
       return undefined;
     });
-    this.concentration_tsn = concentration_sn.length ?
-      [tf.stack(concentration_sn)] : [tf.tensor1d([])];
+    this.dt = tf.scalar(1e-3, 'float32');
+    this.dx = tf.scalar(this.dx, 'float32');
+    this.current = tf.scalar(this.input.current, 'float32');
+    this.tolerance = tf.scalar(this.input.tolerance, 'float32');
+    this.concentration_sn = concentration_sn.length ?
+      tf.stack(concentration_sn) : tf.tensor1d([]);
     concentration_sn.forEach(concentration_n => concentration_n.dispose());
     // initial cH                   pH 7 == 10^-7 mole / L == 10^-4 mole / m^3
     this.cH_n = tf.tidy(() => tf.onesLike(this.grid_n).mul(1e-7 * 1e3));
@@ -154,43 +157,30 @@ export class Spresso {
     this.l_mat_sd = tf.stack(input.species.map((specie) => specie.coeffList));
   }
 
-  getCurrentStep() {
-    return this.time_t.length - 1;
-  }
-
-  getCurrentTime() {
-    return this.time_t[this.time_t.length - 1];
-  }
-
-  getCurrentConcentration() {
-    return this.concentration_tsn[this.concentration_tsn.length - 1];
-  }
-
-  getAllConcentration() {
-    return tf.stack(this.concentration_tsn);
-  }
-
   async simulateStep() {
-    if (this.getCurrentTime() >= this.input.simTime) {
+    if (this.t >= this.input.simTime) {
       return false;
     }
 
     const [new_cH_n, new_concentration_sn, dt, new_dt] = await this.model.executeAsync({
       ch_n: this.cH_n,
-      c_mat_sn: this.getCurrentConcentration(),
+      c_mat_sn: this.concentration_sn,
       l_mat_sd: this.l_mat_sd,
       val_mat_sd: this.val_mat_sd,
       u_mat_sd: this.u_mat_sd,
       d_mat_sd: this.d_mat_sd,
-      current: tf.scalar(this.input.current, 'float32'),
-      dx: tf.scalar(this.dx, 'float32'),
+      current: this.current,
+      dx: this.dx,
       dt: this.dt,
-      tolerance: tf.scalar(this.input.tolerance, 'float32'),
+      tolerance: this.tolerance,
     }, ['Identity:0', 'Identity_1:0', 'Identity_2:0', 'Identity_3:0']);
 
-    const t = this.getCurrentTime();
-    this.time_t.push(t + (await dt.data())[0]);
-    this.concentration_tsn.push(new_concentration_sn);
+    this.t += (await dt.data())[0];
+    dt.dispose();
+    this.concentration_sn.dispose();
+    this.cH_n.dispose();
+    this.dt.dispose();
+    this.concentration_sn = new_concentration_sn;
     this.cH_n = new_cH_n;
     this.dt = new_dt;
 
@@ -198,7 +188,16 @@ export class Spresso {
   }
 
   reset() {
-    this.concentration_tsn.forEach(c => c.dispose());
+    this.concentration_sn.dispose();
+    this.l_mat_sd.dispose();
+    this.val_mat_sd.dispose();
+    this.u_mat_sd.dispose();
+    this.d_mat_sd.dispose();
+    this.cH_n.dispose();
     this.grid_n.dispose();
+    this.dt.dispose();
+    this.dx.dispose();
+    this.current.dispose();
+    this.tolerance.dispose();
   }
 }

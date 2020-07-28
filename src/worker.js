@@ -28,9 +28,10 @@ async function requestUpdate() {
   updated = false;
   const plot = {
     x: await spresso.grid_n.data(),
-    concentration_sn: await spresso.getCurrentConcentration().data(),
+    concentration_sn: await spresso.concentration_sn.data(),
+    cH_n: await spresso.cH_n.data(),
   }
-  postMessage({msg: 'update', plot: plot, t: spresso.getCurrentTime()});
+  postMessage({msg: 'update', plot: plot, t: spresso.t});
 }
 
 async function reset(input) {
