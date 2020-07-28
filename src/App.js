@@ -96,9 +96,16 @@ class SimUI extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      // react plot
       data: [],
-      x: undefined,
-      t: undefined,
+      config: {},
+      layout: {
+        xaxis: { title: { text: 'Domain [m]' } },
+        yaxis: {
+          title: { text: 'Concentration [mole / m3]' },
+        }
+      },
+      // others
       running: false,
       species: JSON.parse(localStorage.getItem("species")) || DEFAULT_SPECIES,
       injectionValid: JSON.parse(localStorage.getItem("injectionValid") || false),
@@ -112,15 +119,17 @@ class SimUI extends React.Component {
       case 'update':
         const { numGrids } = this.state;
         this.setState({
-          t: e.data.plot.t,
-          data: this.state.species.map((specie, specieIdx) => {
-            return e.data.plot.concentration_sn.subarray(specieIdx * numGrids,
-                                                         (specieIdx+1) * numGrids); 
-          }),         
+          data: this.state.species.map((specie, specieIdx) => ({
+            x: e.data.plot.x,
+            y: e.data.plot.concentration_sn.subarray(specieIdx * numGrids,
+                                                     (specieIdx+1) * numGrids),
+            name: specie.name + ' -- ' + specie.injectionType,
+          })),
+          layout: {
+            ...this.state.layout, 
+            title: { text: 'Concentration Plot @ ' + e.data.t.toFixed(4) + 's' },
+          },
         });
-        if (e.data.plot.x !== undefined) {
-          this.setState({x: e.data.plot.x});
-        }
         break;
       case 'finished':
         this.setState({running: false});
@@ -257,29 +266,20 @@ class SimUI extends React.Component {
       this.setState({injectionValid});
     }
     // inform worker about graphics update
-    if (prevState.t !== this.state.t) {
+    if (prevState.data !== this.state.data) {
       this.worker.postMessage({msg: 'updated'});
     }
   }
 
   render() {
-    const plot = (this.state.t !== undefined) ?
+    const plot = (this.state.layout.title !== undefined) ?
       <Plot
-        data={this.state.species.map((specie, idx) => {
-          return {
-            x: this.state.x,
-            y: this.state.data[idx],
-            name: specie.name + ' -- ' + specie.injectionType,
-          };
-        })}
-        layout={{
-          title: { text: 'Concentration Plot @ ' + this.state.t + 's' },
-          xaxis: { title: { text: 'Domain [m]' } },
-          yaxis: {
-            title: { text: 'Concentration [mole / m3]' },
-          }
-        }}
-        divId='concentration_plot'
+        data={ this.state.data }
+        layout={ this.state.layout }
+        config={ this.state. config }
+        divId='concentrationPlot'
+        onInitialized={(figure) => this.setState(figure)}
+        onUpdate={(figure) => this.setState(figure)}
       />
       :
       'Loading';

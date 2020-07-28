@@ -21,26 +21,23 @@ const initBackend = async () => {
 
 initBackend().then(() => { ready = true; });
 
-async function requestUpdate(updateX=false) {
+async function requestUpdate() {
   if (!spresso) {
     return;
   }
   updated = false;
-  let plot = {
-    t: spresso.getCurrentTime(),
+  const plot = {
+    x: await spresso.grid_n.data(),
     concentration_sn: await spresso.getCurrentConcentration().data(),
   }
-  if (updateX) {
-    plot.x = await spresso.grid_n.data();
-  }
-  postMessage({msg: 'update', plot: plot});
+  postMessage({msg: 'update', plot: plot, t: spresso.getCurrentTime()});
 }
 
 async function reset(input) {
   running = false;
   if (spresso) { spresso.reset(); }
   spresso = new Spresso(input, model);
-  await requestUpdate(true);
+  await requestUpdate();
 }
 
 async function simulate() {
