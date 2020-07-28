@@ -276,7 +276,7 @@ class SimUI extends React.Component {
       <Plot
         data={ this.state.data }
         layout={ this.state.layout }
-        config={ this.state. config }
+        config={ this.state.config }
         divId='concentrationPlot'
         onInitialized={(figure) => this.setState(figure)}
         onUpdate={(figure) => this.setState(figure)}
