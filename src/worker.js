@@ -28,20 +28,19 @@ async function requestUpdate() {
     return;
   }
   updated = false;
-  const pH_n = tf.tidy(() => spresso.cH_n.div(1e3).log().div(-Math.log(10)));
   const plot = {
     x: await spresso.grid_n.data(),
-    concentration_sn: await spresso.concentration_sn.data(),
-    pH_n: await pH_n.data(),
+    concentration_sn: spresso.getCurrentConcentration(),
+    pH_n: spresso.getCurrentCH().map((val) => -Math.log10(val)),
   }
-  postMessage({msg: 'update', plot: plot, t: spresso.t});
+  postMessage({msg: 'update', plot: plot, t: spresso.getCurrentTime()});
 }
 
 async function reset(input) {
   running = false;
   if (spresso) { spresso.reset(); }
   spresso = new Spresso(input, spresso_sim, spresso_ph);
-  await spresso.initPH();
+  await spresso.init();
   await requestUpdate();
 }
 

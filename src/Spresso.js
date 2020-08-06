@@ -156,12 +156,17 @@ export class Spresso {
     this.l_mat_sd = tf.stack(input.species.map((specie) => specie.coeffList));
   }
 
-  async initPH() {
+  async init() {
+    // initialize pH
     this.cH_n = await this.model_ph.executeAsync({
       c_mat_sn: this.concentration_sn,
       l_mat_sd: this.l_mat_sd,
       val_mat_sd: this.val_mat_sd,
     });
+    // saved temporal slices
+    this.concentration_tsn = [await this.concentration_sn.data()];
+    this.cH_tn = [await this.cH_n.data()];
+    this.time_t = [this.t];
   }
 
   async simulateStep() {
@@ -182,16 +187,35 @@ export class Spresso {
       tolerance: this.tolerance,
     }, ['Identity:0', 'Identity_1:0', 'Identity_2:0', 'Identity_3:0']);
 
+    // update time
     this.t += (await dt.data())[0];
+    // dispose previous states
     dt.dispose();
     this.concentration_sn.dispose();
     this.cH_n.dispose();
     this.dt.dispose();
+    // update to new states
     this.concentration_sn = new_concentration_sn;
     this.cH_n = new_cH_n;
     this.dt = new_dt;
+    // extract data
+    this.time_t.push(this.t);
+    this.concentration_tsn.push(await this.concentration_sn.data());
+    this.cH_tn.push(await this.cH_n.data());
 
     return true;
+  }
+
+  getCurrentConcentration() {
+    return this.concentration_tsn[this.concentration_tsn.length - 1];
+  }
+
+  getCurrentCH() {
+    return this.cH_tn[this.cH_tn.length - 1];
+  }
+
+  getCurrentTime() {
+    return this.t;
   }
 
   reset() {

@@ -105,10 +105,6 @@ class SimUI extends React.Component {
         yaxis2: { title: 'pH', overlaying: 'y', side: 'right' },
         legend: { x: 1.1, },
       },
-      // tmp
-      t_sim: [],
-      t_actual: [],
-      t_start: 0,
       // others
       running: false,
       species: JSON.parse(localStorage.getItem("species")) || DEFAULT_SPECIES,
@@ -142,8 +138,6 @@ class SimUI extends React.Component {
             ...this.state.layout, 
             title: { text: 'Concentration / pH @ ' + e.data.t.toFixed(4) + 's' },
           },
-          t_sim: e.data.t === 0 ? [] : [...this.state.t_sim, e.data.t],
-          t_actual: e.data.t === 0 ? [] : [...this.state.t_actual, Date.now() / 1000 - this.state.t_start],
         });
         break;
       case 'finished':
@@ -319,7 +313,7 @@ class SimUI extends React.Component {
         endIcon={<PlayArrowIcon/>} 
         disabled={ !this.inputValid() }
         onClick={() => {
-          this.setState({running: true, t_start: Date.now() / 1000});
+          this.setState({running: true});
           this.worker.postMessage({msg: 'start'});
         }}
       >
@@ -699,19 +693,6 @@ class SimUI extends React.Component {
         </Grid></Box>
         <Grid container>
           { plot }
-        </Grid>
-        <Grid container>
-          <Plot
-            data={[{
-              x: this.state.t_sim,
-              y: this.state.t_actual,
-            }]}
-            layout={{
-              xaxis: { title: 'Simulated Time' },
-              yaxis: { title: 'Actual Time' },
-            }}
-            divId='timePlot'
-          />
         </Grid>
       </div>
     );
