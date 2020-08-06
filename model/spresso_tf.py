@@ -1,13 +1,16 @@
 import argparse
-import tensorflow as tf
+import os
+import uuid
 
 from pathlib import Path
+import tensorflow as tf
 
 F = 96500.      # Faraday constant [C/mol]
 R = 8.314       # Gas constant [J/(mol K)]
 T = 298         # Room Temperature [K]
 uH = 362e-9     # mobility of H+ ions
 uOH = 205e-9    # mobility of OH- ions
+lit2met = 1e3   # mole / lit ==> mole / m^3
 Kw = 1e-14
 
 # for reference only
@@ -24,7 +27,7 @@ RK45_TABLEAU = {
 }
 
 # dormand prince algorithm used by MatLAB's ode45
-DORPRI54_TABLEAU= {
+DORPRI54_TABLEAU = {
     'beta': [
         [1/5],
         [3/40,       9/40],
@@ -36,17 +39,14 @@ DORPRI54_TABLEAU= {
     'c4': [5179/57600, 0, 7571/16695, 393/640, -92097/339200, 187/2100, 1/40],
 }
 
-class SpressoTF(tf.Module):
-    """ Tensorflow implementation of Spresso simulation step """
+class SpressoPH(tf.Module):
+    """ Tensorflow implementation of Spresso initial pH calculation """
     def __init__(self):
-        super(SpressoTF, self).__init__()
+        super(SpressoPH, self).__init__()
 
-    def lz_func(self, cH_n, c_mat_sn, l_mat_sd, val_mat_sd, approx):
-        num_species = tf.shape(c_mat_sn)[0]
-        num_grid = tf.shape(c_mat_sn)[1]
+    def lz_func(self, cH_n, c_mat_sn, l_mat_sd, val_mat_sd):
         max_deg = tf.shape(l_mat_sd)[1]
 
-        ones_n1 = tf.ones((num_grid, 1))
         cH_log_n = tf.math.log(cH_n)
         cH_mat_log_nd = tf.tile(tf.expand_dims(cH_log_n, axis=1), (1, max_deg))
         cH_mat_log_cumsum_nd = tf.cumsum(cH_mat_log_nd, axis=1, exclusive=True)
@@ -54,7 +54,57 @@ class SpressoTF(tf.Module):
         temp_mat_sn = tf.reduce_sum(tf.expand_dims(l_mat_sd, axis=1) * \
                                     tf.expand_dims(cH_mat_nd, axis=0), axis=2)
 
-        m1_mat_sn = c_mat_sn / temp_mat_sn
+        m1_mat_sn = tf.math.divide_no_nan(c_mat_sn, temp_mat_sn)
+        ciz_cube_snd = tf.expand_dims(l_mat_sd, axis=1) * \
+                       tf.expand_dims(cH_mat_nd, axis=0) * \
+                       tf.expand_dims(m1_mat_sn, axis=2)
+
+        temp_z_sn = tf.reduce_sum(tf.expand_dims(val_mat_sd, axis=1) * \
+                                  tf.expand_dims(l_mat_sd, axis=1) * \
+                                  tf.expand_dims(cH_mat_nd, axis=0), axis=2)
+        rhs_den_n = tf.reduce_sum(tf.reduce_sum(
+            ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1)**2, axis=2), axis=0)
+        rhs_num_n = tf.reduce_sum(ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1), axis=(0,2))
+
+        f_n = rhs_num_n + cH_n - Kw / cH_n
+        f_p_n = rhs_den_n / cH_n + 1.0 + Kw / cH_n**2
+        inc_n = f_n / f_p_n
+
+        return inc_n
+
+    @tf.function(input_signature=[
+        tf.TensorSpec([None, None], name='c_mat_sn'),
+        tf.TensorSpec([None, None], name='l_mat_sd'),
+        tf.TensorSpec([None, None], name='val_mat_sd'),
+    ])
+    def __call__(self, c_mat_sn, l_mat_sd, val_mat_sd):
+        c_mat_sn = c_mat_sn / lit2met
+        # initial guess pH == 7
+        cH_n = tf.ones(tf.shape(c_mat_sn)[1], dtype=tf.float32) * 1e-7
+        inc_n = tf.ones_like(cH_n)
+        while tf.norm(inc_n) / tf.reduce_max(cH_n) > 1e-4:
+            inc_n = self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
+            cH_n = cH_n - inc_n 
+
+        return cH_n
+
+
+class SpressoSim(tf.Module):
+    """ Tensorflow implementation of Spresso simulation step """
+    def __init__(self):
+        super(SpressoSim, self).__init__()
+
+    def lz_func(self, cH_n, c_mat_sn, l_mat_sd, val_mat_sd):
+        max_deg = tf.shape(l_mat_sd)[1]
+
+        cH_log_n = tf.math.log(cH_n)
+        cH_mat_log_nd = tf.tile(tf.expand_dims(cH_log_n, axis=1), (1, max_deg))
+        cH_mat_log_cumsum_nd = tf.cumsum(cH_mat_log_nd, axis=1, exclusive=True)
+        cH_mat_nd = tf.exp(cH_mat_log_cumsum_nd)
+        temp_mat_sn = tf.reduce_sum(tf.expand_dims(l_mat_sd, axis=1) * \
+                                    tf.expand_dims(cH_mat_nd, axis=0), axis=2)
+
+        m1_mat_sn = tf.math.divide_no_nan(c_mat_sn, temp_mat_sn)
         ciz_cube_snd = tf.expand_dims(l_mat_sd, axis=1) * \
                        tf.expand_dims(cH_mat_nd, axis=0) * \
                        tf.expand_dims(m1_mat_sn, axis=2)
@@ -64,36 +114,35 @@ class SpressoTF(tf.Module):
                                   tf.expand_dims(cH_mat_nd, axis=0), axis=2)
         rhs_den_n = tf.reduce_sum(tf.reduce_sum(
             ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1)**2 - \
-                approx * ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1) * \
+                ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1) * \
                 tf.expand_dims(temp_z_sn, axis=2) / tf.expand_dims(temp_mat_sn, axis=2), 
         axis=2), axis=0)
         rhs_num_n = tf.reduce_sum(ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1), axis=(0,2))
 
-        F_n = rhs_num_n + cH_n - Kw / cH_n
-        F_prime_n = rhs_den_n / cH_n + 1.0 + Kw / cH_n**2
+        f_n = rhs_num_n + cH_n - Kw / cH_n
+        f_p_n = rhs_den_n / cH_n + 1.0 + Kw / cH_n**2
+        inc_n = f_n / f_p_n
 
-        return F_n, F_prime_n, cH_mat_nd, temp_mat_sn
+        return inc_n, cH_mat_nd, temp_mat_sn
 
     def lz_calc_equilibrium(self, cH_n, c_mat_sn, l_mat_sd, val_mat_sd):
-        F_n, F_prime_n, cH_mat_nd, temp_mat_sn = \
-            self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd, 0.)
-        inc_n = F_n / F_prime_n
-        while tf.norm(F_n) > 1e-5 and tf.norm(inc_n) > 1e-9:
-            cH_n = cH_n - inc_n 
-            F_n, F_prime_n, cH_mat_nd, temp_mat_sn = \
-                self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd, 0.)
-            inc_n = F_n / F_prime_n
+        c_mat_sn = c_mat_sn / lit2met
+        # 1st newton iterations
+        inc_n, cH_mat_nd, temp_mat_sn = self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
+        cH_n = cH_n - inc_n 
+        # 2nd newton iterations
+        inc_n, cH_mat_nd, temp_mat_sn = self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
+        cH_n = cH_n - inc_n 
 
         giz_cube_snd = tf.expand_dims(l_mat_sd, axis=1) * \
                        tf.expand_dims(cH_mat_nd, axis=0) / \
                        tf.expand_dims(temp_mat_sn, axis=2)
 
-        return cH_n,giz_cube_snd 
+        return cH_n, giz_cube_snd 
 
     def calc_spatial_properties(self, cH_n, c_mat_sn, 
                                 l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd):
-        cH_n, giz_cube_snd = \
-            self.lz_calc_equilibrium(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
+        cH_n, giz_cube_snd = self.lz_calc_equilibrium(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
 
         u_cube_snd = tf.expand_dims(u_mat_sd, axis=1) * giz_cube_snd
         d_cube_snd = tf.expand_dims(d_mat_sd, axis=1) * giz_cube_snd
@@ -105,9 +154,9 @@ class SpressoTF(tf.Module):
         beta_mat_sn = F * tf.reduce_sum(val_mat_s1d * d_cube_snd, axis=2)
 
         sig_vec_n = tf.reduce_sum(alpha_mat_sn * c_mat_sn, axis=0) + \
-                    F * (uH * cH_n + uOH * Kw / cH_n)
+                    lit2met * F * (uH * cH_n + uOH * Kw / cH_n)
         s_vec_n = tf.reduce_sum(beta_mat_sn * c_mat_sn, axis=0) + \
-                  R * T * (uH * cH_n - uOH * Kw / cH_n)
+                    lit2met * R * T * (uH * cH_n - uOH * Kw / cH_n)
 
         return cH_n, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n
 
@@ -195,15 +244,15 @@ class SpressoTF(tf.Module):
         cH_n, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n = self.calc_spatial_properties(
             cH_n, c_mat_sn, l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd)
         # perform integration
-        c_mat_5_sn = c_mat_sn
+        c_mat_5_sn = tf.identity(c_mat_sn)
         error = tolerance + 1.
         dt_scale = 1.
         while error > tolerance:
             dt *= dt_scale
             c_mat_5_sn, error = self.integrate(
                 c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx, dt)
-            dt_scale = .9 * (tolerance / error)**(1/6)
-            dt_scale = tf.clip_by_value(dt_scale, 0.1, 5)
+            dt_scale = .9 * (tolerance / error)**(1/5)
+            dt_scale = tf.clip_by_value(dt_scale, 0.1, 10)
 
         return cH_n, c_mat_5_sn, dt, dt*dt_scale
 
@@ -213,10 +262,18 @@ def parse_args():
                         help='directory to store the output model')
     return parser.parse_args()
 
+def save_tf_model(model, output_dir, name):
+    import tensorflowjs as tfjs
+    path = os.path.join('/tmp', str(uuid.uuid4()))
+    tf.saved_model.save(model, path)
+    tfjs.converters.convert_tf_saved_model(path, os.path.join(output_dir, name),
+        strip_debug_ops=True, control_flow_v2=True)
+
 # save the simulation computatation graph as TF Saved Model
 if __name__ == '__main__':
     args = parse_args()
     # make sure output path exist
     Path(args.output).mkdir(parents=True, exist_ok=True)
-    spresso = SpressoTF()    
-    tf.saved_model.save(spresso, args.output) 
+    save_tf_model(SpressoSim(), args.output, 'spresso_sim')
+    save_tf_model(SpressoPH(), args.output, 'spresso_ph')
+    

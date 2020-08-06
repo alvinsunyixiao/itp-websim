@@ -95,9 +95,10 @@ export class SpressoInput {
 }
 
 export class Spresso {
-  constructor(input, model) {
+  constructor(input, model_sim, model_ph) {
     this.input = input;
-    this.model = model;
+    this.model_sim = model_sim;
+    this.model_ph = model_ph;
     this.dx = input.domainLen / input.numGrids;
     this.step = 0;
     const grid_n_arr = range(0, input.domainLen, this.dx);
@@ -148,8 +149,6 @@ export class Spresso {
     this.concentration_sn = concentration_sn.length ?
       tf.stack(concentration_sn) : tf.tensor1d([]);
     concentration_sn.forEach(concentration_n => concentration_n.dispose());
-    // initial cH                   pH 7 == 10^-7 mole / L == 10^-4 mole / m^3
-    this.cH_n = tf.tidy(() => tf.onesLike(this.grid_n).mul(1e-7 * 1e3));
     // equilibrium params
     this.val_mat_sd = tf.stack(input.species.map((specie) => specie.zList));
     this.u_mat_sd = tf.stack(input.species.map((specie) => specie.uList));
@@ -157,12 +156,20 @@ export class Spresso {
     this.l_mat_sd = tf.stack(input.species.map((specie) => specie.coeffList));
   }
 
+  async initPH() {
+    this.cH_n = await this.model_ph.executeAsync({
+      c_mat_sn: this.concentration_sn,
+      l_mat_sd: this.l_mat_sd,
+      val_mat_sd: this.val_mat_sd,
+    });
+  }
+
   async simulateStep() {
     if (this.t >= this.input.simTime) {
       return false;
     }
 
-    const [new_cH_n, new_concentration_sn, dt, new_dt] = await this.model.executeAsync({
+    const [new_cH_n, new_concentration_sn, dt, new_dt] = await this.model_sim.executeAsync({
       ch_n: this.cH_n,
       c_mat_sn: this.concentration_sn,
       l_mat_sd: this.l_mat_sd,
@@ -193,7 +200,7 @@ export class Spresso {
     this.val_mat_sd.dispose();
     this.u_mat_sd.dispose();
     this.d_mat_sd.dispose();
-    this.cH_n.dispose();
+    if (this.cH_n) { this.cH_n.dispose(); }
     this.grid_n.dispose();
     this.dt.dispose();
     this.dx.dispose();

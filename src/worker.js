@@ -5,7 +5,8 @@ let spresso = undefined;
 let running = false;
 let ready = false;
 let updated = true;
-let model = undefined;
+let spresso_sim = undefined;
+let spresso_ph = undefined;
 
 const initBackend = async () => {
   tf.enableProdMode();
@@ -15,7 +16,8 @@ const initBackend = async () => {
   else {
     await tf.setBackend('cpu');
   }
-  model = await tf.loadGraphModel('/spresso_tf/model.json');
+  spresso_sim = await tf.loadGraphModel('/spresso_sim/model.json');
+  spresso_ph = await tf.loadGraphModel('/spresso_ph/model.json');
   postMessage({msg: 'init', backend: tf.getBackend()});
 };
 
@@ -38,14 +40,15 @@ async function requestUpdate() {
 async function reset(input) {
   running = false;
   if (spresso) { spresso.reset(); }
-  spresso = new Spresso(input, model);
+  spresso = new Spresso(input, spresso_sim, spresso_ph);
+  await spresso.initPH();
   await requestUpdate();
 }
 
 async function simulate() {
   let shouldContinue = running;
   for (let i = 0; i < spresso.input.animateRate && shouldContinue; ++i) {
-    shouldContinue = await spresso.simulateStep(model);
+    shouldContinue = await spresso.simulateStep();
   }
   if (shouldContinue) {
     setTimeout(simulate, 0);
