@@ -25,7 +25,8 @@ supports for `cumsum` operator.
     |-- model
     |   |-- spresso_tf.py   # Tensorflow 2.x implementation of Spresso simulation step
     |-- public              # directory for all statically served files
-    |   |-- spresso_tf      # directory that stores the serialized simulation model
+    |   |-- spresso_sim     # serialized simulation model
+    |   |-- spresso_ph      # serialized pH initialization model
     |-- src                 # all JS / CSS source files
     |   |-- App.js          # top level simulation UI interface
     |   |-- Input.js        # encapsulation of commonly used input elements
