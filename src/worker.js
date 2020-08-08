@@ -29,11 +29,11 @@ async function requestUpdate() {
   }
   updated = false;
   const plot = {
-    x: await spresso.grid_n.data(),
+    x: (await spresso.grid_n.data()).map((val) => val * 1e3), // m => mm
     concentration_sn: spresso.getCurrentConcentration(),
-    pH_n: spresso.getCurrentCH().map((val) => -Math.log10(val)),
+    pH_n: spresso.getCurrentCH().map((val) => -Math.log10(val)), // cH => pH
   }
-  postMessage({msg: 'update', plot: plot, t: spresso.getCurrentTime()});
+  postMessage({msg: 'update', plot: plot, t: spresso.getCurrentTime()}, [plot.x.buffer]);
 }
 
 async function reset(input) {
