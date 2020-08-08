@@ -9,8 +9,8 @@ import { range, chain } from 'mathjs';
  * species:       a dictionary of species properties
  **/
 export class SpressoInput {
-  constructor(simTime, animateRate, 
-              numGrids, tolerance, interfaceWidth, 
+  constructor(simTime, animateRate,
+              numGrids, tolerance, interfaceWidth,
               domainLen, current, area, species) {
     // convert type+unit to SI
     this.simTime = simTime;
@@ -25,13 +25,13 @@ export class SpressoInput {
   }
 
   parseProperties(specie, maxNumValence) {
-    const zList = new Float32Array(maxNumValence + 1);
-    const uList = new Float32Array(maxNumValence + 1)
-    const dList = new Float32Array(maxNumValence + 1);
-    const coeffList = new Float32Array(maxNumValence + 1);
+    let zList = new Array(maxNumValence + 1);
+    let uList = new Array(maxNumValence + 1)
+    let dList = new Array(maxNumValence + 1);
+    let coeffList = new Array(maxNumValence + 1);
     if (!specie.propertyValid) { return { zList, uList, dList, coeffList }; }
     const valences = specie.valence.replace(' ', '').split(',').map((v) => parseFloat(v));
-    const mobilities = specie.mobility.replace(' ', '').split(',').map((v) => 
+    const mobilities = specie.mobility.replace(' ', '').split(',').map((v) =>
       parseFloat(v) * 1e-9);
     const pKas = specie.pKa.replace(' ', '').split(',').map((v) => Math.pow(10, -parseFloat(v)));
     const R = 8.314, T = 298.0, F = 96500.0; // Gas, room temperature (K), Faraday constants
@@ -44,34 +44,34 @@ export class SpressoInput {
     }));
     // add in valence 0
     properties.push({
-      valence: 0., 
-      mobility: 0., 
-      pKa: 1., 
+      valence: 0.,
+      mobility: 0.,
+      pKa: 1.,
       diffusivity: properties.reduce((sum, a) => (sum + a.diffusivity), 0) / properties.length,
     });
     // sort according to valence
     properties.sort((a, b) => (a.valence - b.valence));
     // unzip data
-    zList.set(properties.map((prop) => prop.valence));
-    uList.set(properties.map((prop) => prop.mobility));
-    dList.set(properties.map((prop) => prop.diffusivity));
-    // calculate equilibrium coefficients 
+    zList = properties.map((prop) => prop.valence);
+    uList = properties.map((prop) => prop.mobility);
+    dList = properties.map((prop) => prop.diffusivity);
+    // calculate equilibrium coefficients
     const minValence = parseInt(properties[0].valence);
     const pKaList = properties.map((prop) => prop.pKa);
-    coeffList.set(properties.map((prop, idx) => {
-      if (prop.valence < 0) { 
-        return pKaList.slice(idx, -minValence).reduce((a, b) => a * b); 
-      } else if (prop.valence > 0) { 
-        return 1 / pKaList.slice(-minValence, idx+1).reduce((a, b) => a * b); 
+    coeffList = properties.map((prop, idx) => {
+      if (prop.valence < 0) {
+        return pKaList.slice(idx, -minValence).reduce((a, b) => a * b);
+      } else if (prop.valence > 0) {
+        return 1 / pKaList.slice(-minValence, idx+1).reduce((a, b) => a * b);
       } else {
         return 1.;
       }
-    }));
+    });
     return { zList, uList, dList, coeffList };
   }
 
   parse() {
-    const maxNumValence = this.species.reduce((acc, a) => 
+    const maxNumValence = this.species.reduce((acc, a) =>
       (Math.max(acc, a.valence.split(',').length)), 0);
     return {
       simTime:        parseFloat(this.simTime),

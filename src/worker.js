@@ -62,6 +62,28 @@ async function simulate() {
   }
 }
 
+function retrieve() {
+  if (running === true || spresso === undefined) { return; }
+  const numSpecies = spresso.l_mat_sd.shape[0];
+  const numGrids = spresso.input.numGrids;
+  const numSteps = spresso.concentration_tsn.length;
+
+  const concentration_tsn = new Float32Array(numSteps * numSpecies * numGrids);
+  const cH_tn = new Float32Array(numSteps * numGrids);
+  const time_t = new Float32Array(spresso.time_t);
+
+  for (let i = 0; i < spresso.time_t.length; ++i) {
+    concentration_tsn.set(spresso.concentration_tsn[i], i * numSpecies * numGrids);
+    cH_tn.set(spresso.cH_tn[i], i * numGrids);
+  }
+
+  postMessage({
+    msg: 'data',
+    result: {concentration_tsn, cH_tn, time_t},
+    input: spresso.input,
+  }, [concentration_tsn.buffer, cH_tn.buffer, time_t.buffer]);
+}
+
 onmessage = function(e) {
   if (!ready) {
     setTimeout(() => onmessage(e), 100);
@@ -84,6 +106,9 @@ onmessage = function(e) {
       break;
     case 'updated':
       updated = true;
+      break;
+    case 'retrieve':
+      retrieve();
       break;
     default:
       console.log('Unrecognized message: ' + e.data.msg);

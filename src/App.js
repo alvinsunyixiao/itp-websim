@@ -19,6 +19,7 @@ import download from 'downloadjs';
 
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect } from './Input';
+import { ndarray } from './ndarray';
 
 const VERSION = 'spresso_v1';
 
@@ -107,6 +108,7 @@ class SimUI extends React.Component {
       },
       // others
       running: false,
+      hasResult: false,
       species: JSON.parse(localStorage.getItem("species")) || DEFAULT_SPECIES,
       injectionValid: JSON.parse(localStorage.getItem("injectionValid") || false),
     }
@@ -117,14 +119,14 @@ class SimUI extends React.Component {
   workerHandler(e) {
     switch (e.data.msg) {
       case 'update':
-        const { numGrids } = this.state;
         this.setState({
+          hasResult: true,
           data: this.state.species.map((specie, specieIdx) => ({
             ...(this.state.data.length === this.state.species.length + 1?
                 this.state.data[specieIdx] : {}),
             x: e.data.plot.x,
-            y: e.data.plot.concentration_sn.subarray(specieIdx * numGrids,
-                                                     (specieIdx+1) * numGrids),
+            y: e.data.plot.concentration_sn.subarray(specieIdx * this.state.numGrids,
+                                                     (specieIdx+1) * this.state.numGrids),
             name: specie.name + ' -- ' + specie.injectionType,
           })).concat([{
             ...(this.state.data.length === this.state.species.length + 1?
@@ -135,7 +137,7 @@ class SimUI extends React.Component {
             yaxis: 'y2',
           }]),
           layout: {
-            ...this.state.layout, 
+            ...this.state.layout,
             title: { text: 'Concentration / pH @ ' + e.data.t.toFixed(4) + 's' },
           },
         });
@@ -145,6 +147,20 @@ class SimUI extends React.Component {
         break;
       case 'init':
         console.log('TF is using ' + e.data.backend + ' backend.');
+        break;
+      case 'data':
+        const { result, input } = e.data;
+        const numSteps = result.time_t.length;
+        const numSpecies = input.species.length;
+        const numGrids = input.numGrids;
+
+        const concentration_tsn = new ndarray(result.concentration_tsn,
+                                              [numSteps, numSpecies, numGrids]).encode();
+        const cH_tn = new ndarray(result.cH_tn, [numSteps, numGrids]).encode();
+        const time_t = new ndarray(result.time_t, [numSteps]).encode();
+
+        const simResult = { input, output: { concentration_tsn, cH_tn, time_t } };
+        download(JSON.stringify(simResult), 'result.json', 'application/json');
         break;
       default:
         console.log('Unrecognized message: ' + e.data.msg);
@@ -158,20 +174,20 @@ class SimUI extends React.Component {
       this.state.numGridsValid && this.state.toleranceValid && this.state.interfaceWidthValid &&
       this.state.domainLenValid && this.state.currentValid && this.state.areaValid &&
       this.state.injectionValid &&
-      species.every((specie) => 
+      species.every((specie) =>
         (specie.nameValid && specie.propertyValid))
     );
   }
 
   resetHandler() {
-    this.setState({running: false});
+    this.setState({running: false, hasResult: false});
 
     const input = new SpressoInput(
-      this.state.simTime, this.state.animateRate, 
-      this.state.numGrids, this.state.tolerance, this.state.interfaceWidth, 
+      this.state.simTime, this.state.animateRate,
+      this.state.numGrids, this.state.tolerance, this.state.interfaceWidth,
       this.state.domainLen, this.state.current, this.state.area,
       this.state.species);
-    
+
     try {
       const parsedInput = input.parse();
       this.worker.postMessage({msg: 'reset', input: parsedInput});
@@ -195,7 +211,7 @@ class SimUI extends React.Component {
       const injectionWidthValid = (injectionWidth > 0);
       switch (specie.injectionType) {
         case 'Analyte':
-          return injectionLocValid && injectionWidthValid; 
+          return injectionLocValid && injectionWidthValid;
         case 'LE':
         case 'TE':
           return injectionLocValid;
@@ -307,10 +323,10 @@ class SimUI extends React.Component {
         </Button>
       </Tooltip>
       :
-      <Button 
-        variant="contained" 
+      <Button
+        variant="contained"
         color="primary"
-        endIcon={<PlayArrowIcon/>} 
+        endIcon={<PlayArrowIcon/>}
         disabled={ !this.inputValid() }
         onClick={() => {
           this.setState({running: true});
@@ -351,14 +367,14 @@ class SimUI extends React.Component {
                 invalidText="Must be a positive integer"
                 label="Animation Rate"
                 name="animateRate"
-                update={(name, value) => inputUpdate(name, value, 
+                update={(name, value) => inputUpdate(name, value,
                   Number.isInteger(parseFloat(value)) && parseInt(value) > 0)}
                 value={ this.state.animateRate }
                 defaultValue={ DEFAULT_INPUT.animateRate }
               >
-                Update the animated graph once every this many steps of simulation. 
+                Update the animated graph once every this many steps of simulation.
                 Lower this value to obtain smoother animation.<br/>
-                <strong style={{color: 'yellow'}}>Warning</strong>: 
+                <strong style={{color: 'yellow'}}>Warning</strong>:
                   extremely small animation rate can potentially slow down the simulation.
               </InputNumber>
             </Grid>
@@ -393,10 +409,10 @@ class SimUI extends React.Component {
               >
                 Absolute tolerance for ODE integration step adjustment. Lower this value
                 to speed up simulation while raise this to obtain more accurate results.<br/>
-                <strong style={{color: 'cyan'}}>Note</strong>: 
-                  Try not to set this below 1e-4, otherwise the integration 
+                <strong style={{color: 'cyan'}}>Note</strong>:
+                  Try not to set this below 1e-4, otherwise the integration
                   might fail due to floating point precision issues. Also,
-                  don't worry about having a tolerance as high as 1e-2 
+                  don't worry about having a tolerance as high as 1e-2
                   because the error estimate is the norm of the entire unnormalized
                   concentration error matrix.
               </InputNumber>
@@ -525,14 +541,14 @@ class SimUI extends React.Component {
                   invalidText="Must be positive"
                   name={ "injectionAmount" + specie.name }
                   value={ specie.injectionAmount }
-                  update={(name, value) => setSpecieSpec("injectionAmount", value, 
+                  update={(name, value) => setSpecieSpec("injectionAmount", value,
                     parseFloat(value) > 0)}
                 >
                   Amount of injected substance in [milli mole].
                 </InputNumber>
               </Grid>
               }
-              {specie.injectionType !== 'Analyte' && 
+              {specie.injectionType !== 'Analyte' &&
               <Grid item sm={4} key="initConcentration">
                 <InputNumber
                   label={ <span>c<sub>0</sub></span> }
@@ -553,7 +569,7 @@ class SimUI extends React.Component {
                   label={ <span>x<sub>inj</sub></span> }
                   validEmbed
                   valid={ this.state.injectionValid }
-                  invalidText="Concentration gaps present. Please bring injections 
+                  invalidText="Concentration gaps present. Please bring injections
                                closer to each other to ensure enough concentration overlap."
                   name={ "injectionLoc" + specie.name }
                   value={ specie.injectionLoc }
@@ -569,7 +585,7 @@ class SimUI extends React.Component {
                   label="h"
                   validEmbed
                   valid={ this.state.injectionValid }
-                  invalidText="Concentration gaps present. Please bring injections 
+                  invalidText="Concentration gaps present. Please bring injections
                                closer to each other to ensure enough concentration overlap."
                   name={ "injectionWidth" + specie.name }
                   value={ specie.injectionWidth }
@@ -595,7 +611,7 @@ class SimUI extends React.Component {
                   <strong style={{color: 'cyan'}}>Format</strong>:
                     a comma seperated list of integers (e.g. 2, 1, -1). <br/>
                   <strong style={{color: 'yellow'}}>Warning</strong>:
-                    Valences should NOT discontinue, i.e. a specie with a -2 valence must 
+                    Valences should NOT discontinue, i.e. a specie with a -2 valence must
                     also has a -1 valence.
                 </InputText>
               </Grid>
@@ -609,7 +625,7 @@ class SimUI extends React.Component {
                     this.validateProperties(specie, 'mobility', value), 'propertyValid')}
                 >
                   Mobility at each valence in [10<sup>-9</sup>m<sup>2</sup>/(V&middot;s)]. <br/>
-                  <strong style={{color: 'cyan'}}>Format</strong>: 
+                  <strong style={{color: 'cyan'}}>Format</strong>:
                     a comma seperated list of numbers (must have the
                     same number of entries as the number of valences.
                 </InputText>
@@ -624,7 +640,7 @@ class SimUI extends React.Component {
                     this.validateProperties(specie, 'pKa', value), 'propertyValid')}
                 >
                   Negative log dissociation constant at each valence. <br/>
-                  <strong style={{color: 'cyan'}}>Format</strong>: 
+                  <strong style={{color: 'cyan'}}>Format</strong>:
                     a comma seperated list of numbers (must have the
                     same number of entries as the number of valences.
                 </InputText>
@@ -690,6 +706,15 @@ class SimUI extends React.Component {
               </Button>
             </Grid>
           }
+          {!this.state.running && this.state.hasResult &&
+            <Grid item key="saveResult">
+              <Button variant="contained" onClick={() => {
+                this.worker.postMessage({msg: 'retrieve'});
+              }}>
+                Save Results
+              </Button>
+            </Grid>
+          }
         </Grid></Box>
         <Grid container>
           { plot }
@@ -708,11 +733,11 @@ const App = function() {
   return (
     <Container>
       <Grid container justify="center" alignItems="center">
-        <Box 
-          m={3} 
-          bgcolor="primary.main" 
-          color="primary.contrastText" 
-          width={1} 
+        <Box
+          m={3}
+          bgcolor="primary.main"
+          color="primary.contrastText"
+          width={1}
           textAlign="center"
           borderRadius={16}
         >
