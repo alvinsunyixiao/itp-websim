@@ -101,8 +101,8 @@ class SimUI extends React.Component {
       data: [],
       config: {},
       layout: {
-        xaxis: { title: { text: 'Domain [m]' } },
-        yaxis: { title: { text: 'Concentration [mole / m3]' } },
+        xaxis: { title: { text: 'Domain [mm]' } },
+        yaxis: { title: { text: 'Concentration [mole / m^3]' } },
         yaxis2: { title: 'pH', overlaying: 'y', side: 'right' },
         legend: { x: 1.1, },
       },
