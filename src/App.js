@@ -144,7 +144,7 @@ class SimUI extends React.Component {
           }]),
           layout: {
             ...this.state.layout,
-            title: { text: 'Concentration / pH @ ' + e.data.t.toFixed(4) + 's' },
+            title: { text: 'Concentration / pH @ t = ' + e.data.t.toFixed(4) + ' s' },
           },
         });
         break;
