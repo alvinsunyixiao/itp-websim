@@ -12,10 +12,16 @@ import AddCircleRoundedIcon from '@material-ui/icons/AddCircleRounded';
 import DeleteIcon from '@material-ui/icons/Delete';
 import PauseIcon from '@material-ui/icons/Pause';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
+import PublishIcon from '@material-ui/icons/Publish';
+import SaveAltIcon from '@material-ui/icons/SaveAlt';
+import SaveIcon from '@material-ui/icons/Save';
+import MaterialTable from "material-table";
 // plotly
 import Plot from 'react-plotly.js';
 // download file from frontend
 import download from 'downloadjs';
+// common species database
+import commonSpecies from './commonSpecies.json';
 
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect } from './Input';
@@ -104,7 +110,7 @@ class SimUI extends React.Component {
         xaxis: { title: { text: 'Domain [mm]' } },
         yaxis: { title: { text: 'Concentration [mole / m^3]' } },
         yaxis2: { title: 'pH', overlaying: 'y', side: 'right' },
-        legend: { x: 1.1, },
+        legend: { x: 1.05, },
       },
       // others
       running: false,
@@ -302,6 +308,7 @@ class SimUI extends React.Component {
         data={ this.state.data }
         layout={ this.state.layout }
         config={ this.state.config }
+        style={ {width: '100%'} }
         divId='concentrationPlot'
         onInitialized={(figure) => this.setState(figure)}
         onUpdate={(figure) => this.setState(figure)}
@@ -315,6 +322,7 @@ class SimUI extends React.Component {
           variant="contained"
           color="default"
           endIcon={<PauseIcon/>}
+          size="small"
           onClick={() => {
             this.worker.postMessage({msg: 'pause'});
           }}
@@ -327,6 +335,7 @@ class SimUI extends React.Component {
         variant="contained"
         color="primary"
         endIcon={<PlayArrowIcon/>}
+        size="small"
         disabled={ !this.inputValid() }
         onClick={() => {
           this.setState({running: true});
@@ -657,37 +666,65 @@ class SimUI extends React.Component {
           </Grid></Box>
           );
         })}
+        <Box mb={3}><Grid container alignItems="center" key="commonSpecies">
+          <MaterialTable
+            title="Common Species List"
+            style={ { width: '90%' } }
+            options={ { maxBodyHeight: 300, padding: 'dense' } }
+            actions={[{ icon: 'add', tooltip: 'Add to simulation', onClick: (_, rowData) => {
+              this.setState({species: [...this.state.species, rowData]});
+            }}]}
+            columns={[
+              { title: 'Name', field: 'name' },
+              { title: 'Valence', field: 'valence', searchable: false },
+              { title: 'Mobility', field: 'mobility', searchable: false },
+              { title: 'pKa', field: 'pKa', searchable: false },
+            ]}
+            data={commonSpecies.map((specie) => ({
+              name: specie.name,
+              valence: specie.valence.join(', '),
+              mobility: specie.mobility.join(', '),
+              pKa: specie.pKa.join(', '),
+            }))}
+          />
+        </Grid></Box>
         <Box mb={3}><Grid container alignItems="center" spacing={1}>
           <Grid item key="start_pause">
             { start_pause }
           </Grid>
           {!this.state.running &&
             <Grid item>
-              <Button color="secondary" variant="contained" onClick={() => this.resetHandler()}>
+              <Button color="secondary" variant="contained" size="small" 
+                      onClick={() => this.resetHandler()}>
                 Reset
               </Button>
             </Grid>
           }
           {!this.state.running &&
             <Grid item key="saveConfig">
-              <Button variant="contained" onClick={() => {
-                const content = JSON.stringify({
-                  ...this.state,
-                  data: undefined,
-                  layout: undefined,
-                  config: undefined,
-                  frames: undefined,
-                  running: undefined,
-                }, null, 2);
-                download(content, 'config.json', 'application/json');
-              }}>
+              <Button 
+                variant="contained" 
+                endIcon={<SaveIcon/>}
+                size="small"
+                onClick={() => {
+                  const content = JSON.stringify({
+                    ...this.state,
+                    data: undefined,
+                    layout: undefined,
+                    config: undefined,
+                    frames: undefined,
+                    running: undefined,
+                  }, null, 2);
+                  download(content, 'config.json', 'application/json');
+                }
+              }>
                 Save Config
               </Button>
             </Grid>
           }
           {!this.state.running &&
             <Grid item key="loadConfig">
-              <Button variant="contained" component="label">
+              <Button variant="contained" component="label" endIcon={<PublishIcon/>} size="small">
                 Load Config
                 <input
                   type="file"
@@ -708,9 +745,14 @@ class SimUI extends React.Component {
           }
           {!this.state.running && this.state.hasResult &&
             <Grid item key="saveResult">
-              <Button variant="contained" onClick={() => {
-                this.worker.postMessage({msg: 'retrieve'});
-              }}>
+              <Button 
+                variant="contained" 
+                endIcon={<SaveAltIcon/>}
+                size="small"
+                onClick={() => {
+                  this.worker.postMessage({msg: 'retrieve'});
+                }
+              }>
                 Save Results
               </Button>
             </Grid>
@@ -732,7 +774,7 @@ const App = function() {
   }
   return (
     <Container>
-      <Grid container justify="center" alignItems="center">
+      <Grid container justify="center" alignItems="center" key="spressTitle">
         <Box
           m={3}
           bgcolor="primary.main"
