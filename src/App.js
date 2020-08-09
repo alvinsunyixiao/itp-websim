@@ -336,7 +336,7 @@ class SimUI extends React.Component {
         color="primary"
         endIcon={<PlayArrowIcon/>}
         size="small"
-        disabled={ !this.inputValid() }
+        disabled={ !this.inputValid() || !this.state.hasResult }
         onClick={() => {
           this.setState({running: true});
           this.worker.postMessage({msg: 'start'});
@@ -675,10 +675,14 @@ class SimUI extends React.Component {
               this.setState({species: [...this.state.species, rowData]});
             }}]}
             columns={[
-              { title: 'Name', field: 'name' },
-              { title: 'Valence', field: 'valence', searchable: false },
-              { title: 'Mobility', field: 'mobility', searchable: false },
-              { title: 'pKa', field: 'pKa', searchable: false },
+              { title: 'Name', field: 'name',
+                tooltip: 'Species Name' },
+              { title: 'Valence', field: 'valence',
+                tooltip: 'Valence eletrical charges', searchable: false },
+              { title: 'Mobility', field: 'mobility',
+                tooltip: 'Mobility at each valence in [1e-9 m^2/(V s)]', searchable: false },
+              { title: 'pKa', field: 'pKa',
+                tooltip: 'Negative log dissociation constant at each valence', searchable: false },
             ]}
             data={commonSpecies.map((specie) => ({
               name: specie.name,
@@ -694,7 +698,7 @@ class SimUI extends React.Component {
           </Grid>
           {!this.state.running &&
             <Grid item>
-              <Button color="secondary" variant="contained" size="small" 
+              <Button color="secondary" variant="contained" size="small"
                       onClick={() => this.resetHandler()}>
                 Reset
               </Button>
@@ -702,8 +706,8 @@ class SimUI extends React.Component {
           }
           {!this.state.running &&
             <Grid item key="saveConfig">
-              <Button 
-                variant="contained" 
+              <Button
+                variant="contained"
                 endIcon={<SaveIcon/>}
                 size="small"
                 onClick={() => {
@@ -745,8 +749,8 @@ class SimUI extends React.Component {
           }
           {!this.state.running && this.state.hasResult &&
             <Grid item key="saveResult">
-              <Button 
-                variant="contained" 
+              <Button
+                variant="contained"
                 endIcon={<SaveAltIcon/>}
                 size="small"
                 onClick={() => {
