@@ -352,6 +352,18 @@ class SimUI extends React.Component {
 
     return (
       <div>
+        <Grid container justify="center" alignItems="center" key="spressTitle">
+          <Box
+            m={3}
+            bgcolor="primary.main"
+            color="primary.contrastText"
+            width={1}
+            textAlign="center"
+            borderRadius={16}
+          >
+            <h1>Spresso Simulator</h1>
+          </Box>
+        </Grid>
         <Box mb={2} key="basic"><Grid container>
           <Grid item container sm={6} spacing={1} alignItems="center">
             <Grid item sm={2} key="title"><h4>Simulation</h4></Grid>
@@ -553,7 +565,7 @@ class SimUI extends React.Component {
                   update={(name, value) => setSpecieSpec("injectionAmount", value,
                     parseFloat(value) > 0)}
                 >
-                  Amount of injected substance in [milli mole].
+                  Amount of injected substance in [10<sup>-12</sup> mole].
                 </InputNumber>
               </Grid>
               }
@@ -767,7 +779,7 @@ class SimUI extends React.Component {
             </Grid>
           }
         </Grid></Box>
-        <Grid container>
+        <Grid container key="livePlot">
           { plot }
         </Grid>
       </div>
@@ -775,7 +787,7 @@ class SimUI extends React.Component {
   }
 }
 
-const App = function() {
+const App = (props) => {
   // for reset cache if app is updated to a newer version
   if (localStorage.getItem('version') !== VERSION) {
     localStorage.clear();
@@ -783,19 +795,7 @@ const App = function() {
   }
   return (
     <Container>
-      <Grid container justify="center" alignItems="center" key="spressTitle">
-        <Box
-          m={3}
-          bgcolor="primary.main"
-          color="primary.contrastText"
-          width={1}
-          textAlign="center"
-          borderRadius={16}
-        >
-          <h1>Spresso Simulator</h1>
-        </Box>
-      </Grid>
-      <SimUI />
+      <SimUI/>
     </Container>
   );
 };

@@ -87,11 +87,12 @@ export class SpressoInput {
       interfaceWidth: parseFloat(this.interfaceWidth) * 1e-3,
       domainLen:      parseFloat(this.domainLen) * 1e-3,
       current:        -parseFloat(this.current) / parseFloat(this.area),
+      area:           parseFloat(this.area) * 1e-6,
       species:        this.species.map((specie) => ({
         ...this.parseProperties(specie, maxNumValence),
         name:               specie.name,
         injectionType:      specie.injectionType,
-        injectionAmount:    parseFloat(specie.injectionAmount) * 1e-3,
+        injectionAmount:    parseFloat(specie.injectionAmount) * 1e-12,
         injectionLoc:       parseFloat(specie.injectionLoc) * 1e-3,
         injectionWidth:     parseFloat(specie.injectionWidth) * 1e-3,
         initConcentration:  parseFloat(specie.initConcentration),
@@ -138,7 +139,8 @@ export class Spresso {
             const lhs = erf_l.add(1);
             const rhs = erf_r.add(1);
             const c_raw = lhs.sub(rhs);
-            const c0_over_2 = tf.scalar(injectionAmount/this.dx).div(tf.sum(c_raw));
+            const c0_over_2 = tf.scalar(injectionAmount/(this.dx*this.input.area))
+                                .div(tf.sum(c_raw));
             return c_raw.mul(c0_over_2);
           });
         case 'Background':
