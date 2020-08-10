@@ -668,7 +668,12 @@ class SimUI extends React.Component {
         })}
         <Box mb={3}><Grid container alignItems="center" key="commonSpecies">
           <MaterialTable
-            title="Common Species List"
+            title={
+              <span>
+                <h4>Common Species</h4>
+                <p style={{color: 'red'}}>Use with caution, not error free</p>
+              </span>
+            }
             style={ { width: '90%' } }
             options={ { maxBodyHeight: 300, padding: 'dense' } }
             actions={[{ icon: 'add', tooltip: 'Add to simulation', onClick: (_, rowData) => {

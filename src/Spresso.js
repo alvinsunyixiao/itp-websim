@@ -25,11 +25,14 @@ export class SpressoInput {
   }
 
   parseProperties(specie, maxNumValence) {
-    let zList = new Array(maxNumValence + 1);
-    let uList = new Array(maxNumValence + 1)
-    let dList = new Array(maxNumValence + 1);
-    let coeffList = new Array(maxNumValence + 1);
-    if (!specie.propertyValid) { return { zList, uList, dList, coeffList }; }
+    const maxDeg = maxNumValence + 1;
+    if (!specie.propertyValid) {
+      return {
+        zList: Array(maxDeg).fill(0.),
+        uList: Array(maxDeg).fill(0.),
+        dList: Array(maxDeg).fill(0.),
+        coeffList: Array(maxDeg).fill(0.) };
+    }
     const valences = specie.valence.replace(' ', '').split(',').map((v) => parseFloat(v));
     const mobilities = specie.mobility.replace(' ', '').split(',').map((v) =>
       parseFloat(v) * 1e-9);
@@ -52,13 +55,16 @@ export class SpressoInput {
     // sort according to valence
     properties.sort((a, b) => (a.valence - b.valence));
     // unzip data
-    zList = properties.map((prop) => prop.valence);
-    uList = properties.map((prop) => prop.mobility);
-    dList = properties.map((prop) => prop.diffusivity);
+    const zList = properties.map((prop) => prop.valence)
+                            .concat(Array(maxDeg - properties.length).fill(0));
+    const uList = properties.map((prop) => prop.mobility)
+                            .concat(Array(maxDeg - properties.length).fill(0));
+    const dList = properties.map((prop) => prop.diffusivity)
+                            .concat(Array(maxDeg - properties.length).fill(0));
     // calculate equilibrium coefficients
     const minValence = parseInt(properties[0].valence);
     const pKaList = properties.map((prop) => prop.pKa);
-    coeffList = properties.map((prop, idx) => {
+    const coeffList = properties.map((prop, idx) => {
       if (prop.valence < 0) {
         return pKaList.slice(idx, -minValence).reduce((a, b) => a * b);
       } else if (prop.valence > 0) {
@@ -66,7 +72,7 @@ export class SpressoInput {
       } else {
         return 1.;
       }
-    });
+    }).concat(Array(maxDeg - properties.length).fill(0));
     return { zList, uList, dList, coeffList };
   }
 
@@ -112,23 +118,23 @@ export class Spresso {
         case 'TE':
           return tf.tidy(() => {
             const erf_te = tf.tensor1d(chain(grid_n_arr)
-              .add(-injectionLoc).divide(interfaceWidth).erf().done().toArray());
+              .add(-injectionLoc).divide(.5*interfaceWidth).erf().done().toArray());
             return erf_te.neg().add(1).mul(initConcentration/2);
           });
         case 'LE':
           return tf.tidy(() => {
             const erf_le = tf.tensor1d(chain(grid_n_arr)
-              .add(-injectionLoc).divide(interfaceWidth).erf().done().toArray());
+              .add(-injectionLoc).divide(.5*interfaceWidth).erf().done().toArray());
             return erf_le.add(1).mul(initConcentration/2);
           });
         case 'Analyte':
           return tf.tidy(() => {
             const erf_l = tf.tensor1d(chain(grid_n_arr)
               .add(-injectionLoc+injectionWidth/2)
-              .divide(interfaceWidth).erf().done().toArray());
+              .divide(.5*interfaceWidth).erf().done().toArray());
             const erf_r = tf.tensor1d(chain(grid_n_arr)
               .add(-injectionLoc-injectionWidth/2)
-              .divide(interfaceWidth).erf().done().toArray());
+              .divide(.5*interfaceWidth).erf().done().toArray());
             const lhs = erf_l.add(1);
             const rhs = erf_r.add(1);
             const c_raw = lhs.sub(rhs);

@@ -84,7 +84,7 @@ class SpressoPH(tf.Module):
         inc_n = tf.ones_like(cH_n)
         while tf.norm(inc_n) / tf.reduce_max(cH_n) > 1e-4:
             inc_n = self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
-            cH_n = cH_n - inc_n 
+            cH_n = cH_n - inc_n
 
         return cH_n
 
@@ -115,7 +115,7 @@ class SpressoSim(tf.Module):
         rhs_den_n = tf.reduce_sum(tf.reduce_sum(
             ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1)**2 - \
                 ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1) * \
-                tf.expand_dims(temp_z_sn, axis=2) / tf.expand_dims(temp_mat_sn, axis=2), 
+                tf.expand_dims(temp_z_sn, axis=2) / tf.expand_dims(temp_mat_sn, axis=2),
         axis=2), axis=0)
         rhs_num_n = tf.reduce_sum(ciz_cube_snd * tf.expand_dims(val_mat_sd, axis=1), axis=(0,2))
 
@@ -129,18 +129,18 @@ class SpressoSim(tf.Module):
         c_mat_sn = c_mat_sn / lit2met
         # 1st newton iterations
         inc_n, cH_mat_nd, temp_mat_sn = self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
-        cH_n = cH_n - inc_n 
+        cH_n = cH_n - inc_n
         # 2nd newton iterations
         inc_n, cH_mat_nd, temp_mat_sn = self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
-        cH_n = cH_n - inc_n 
+        cH_n = cH_n - inc_n
 
         giz_cube_snd = tf.expand_dims(l_mat_sd, axis=1) * \
                        tf.expand_dims(cH_mat_nd, axis=0) / \
                        tf.expand_dims(temp_mat_sn, axis=2)
 
-        return cH_n, giz_cube_snd 
+        return cH_n, giz_cube_snd
 
-    def calc_spatial_properties(self, cH_n, c_mat_sn, 
+    def calc_spatial_properties(self, cH_n, c_mat_sn,
                                 l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd):
         cH_n, giz_cube_snd = self.lz_calc_equilibrium(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
 
@@ -204,7 +204,7 @@ class SpressoSim(tf.Module):
         return tf.concat([gradient_left_s1, gradient_mid_sl, gradient_right_s1], axis=1)
 
     def integrate(self, c_mat_sn, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx, dt):
-        calc_flux = lambda input_sn: self.calc_flux(input_sn, 
+        calc_flux = lambda input_sn: self.calc_flux(input_sn,
                 u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n, current, dx)
         T = DORPRI54_TABLEAU['beta']
         k1 = dt * calc_flux(c_mat_sn)
@@ -219,13 +219,13 @@ class SpressoSim(tf.Module):
         k7 = dt * calc_flux(c_mat_5_sn)
 
         T = DORPRI54_TABLEAU['c4']
-        c_mat_4_sn = c_mat_sn + (T[0]*k1 + T[1]*k2 + T[2]*k3 + T[3]*k4 + T[4]*k5 + 
+        c_mat_4_sn = c_mat_sn + (T[0]*k1 + T[1]*k2 + T[2]*k3 + T[3]*k4 + T[4]*k5 +
                                  T[5]*k6 + T[6]*k7)
 
         error = tf.linalg.norm(c_mat_4_sn - c_mat_5_sn)
 
         return c_mat_5_sn, error
-        
+
     @tf.function(input_signature=(
         tf.TensorSpec(shape=[None], name='cH_n'),
         tf.TensorSpec(shape=[None, None], name='c_mat_sn'),
@@ -238,7 +238,7 @@ class SpressoSim(tf.Module):
         tf.TensorSpec(shape=[], name='dt'),
         tf.TensorSpec(shape=[], name='tolerance'),
     ))
-    def __call__(self, cH_n, c_mat_sn, l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd, 
+    def __call__(self, cH_n, c_mat_sn, l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd,
                  current, dx, dt, tolerance):
         # chemical equillibrium
         cH_n, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n = self.calc_spatial_properties(
@@ -276,4 +276,4 @@ if __name__ == '__main__':
     Path(args.output).mkdir(parents=True, exist_ok=True)
     save_tf_model(SpressoSim(), args.output, 'spresso_sim')
     save_tf_model(SpressoPH(), args.output, 'spresso_ph')
-    
+
