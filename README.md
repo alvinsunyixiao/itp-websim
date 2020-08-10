@@ -22,8 +22,6 @@ supports for `cumsum` operator.
 
 ## Project Structure
 
-    |-- model
-    |   |-- spresso_tf.py   # Tensorflow 2.x implementation of Spresso simulation step
     |-- public              # directory for all statically served files
     |   |-- spresso_sim     # serialized simulation model
     |   |-- spresso_ph      # serialized pH initialization model
@@ -32,6 +30,9 @@ supports for `cumsum` operator.
     |   |-- Input.js        # encapsulation of commonly used input elements
     |   |-- Spresso.js      # encapsulation of spresso simulation states management
     |   |-- worker.js       # a seperate web worker that runs the simulation
+    |-- python              # all Python source files
+    |   |-- spresso_tf.py   # Tensorflow 2.x implementation of Spresso computation graph
+    |   |-- utils.py        # utility functions for post analysis
     |-- config-overrides.js # react-app-rewired custom configurations
     |-- package.json        # library dependancies
 
