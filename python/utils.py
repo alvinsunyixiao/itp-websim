@@ -24,6 +24,22 @@ class SimResult:
     """ class abstraction of simulation results """
 
     def __init__(self, species, grid_n, concentration_tsn, cH_tn, time_t):
+        """
+        Args:
+            species:            list of tuples in the form [(name, type), ...], where type
+                                is one of ['LE', 'TE', 'Analyte', 'Background']
+            grid_n:             spatial discretization grid of the channel domain
+            concentration_tsn:  all time slices of concentration matrix in [mole / m^3]
+            cH_tn:              all time slices of Hydrogen ion concentration in [mole / liter]
+            time_t:             simulated time steps
+
+        Note:
+            <variable name>_xyz is a naming convention for an array of shape (x, y, z)
+            Dimension Definition:
+                n:  number of grid points
+                s:  number of species
+                t:  number of time steps
+        """
         self.species = species
         self.grid_n = grid_n
         self.concentration_tsn = concentration_tsn
