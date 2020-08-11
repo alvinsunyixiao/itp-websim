@@ -18,7 +18,7 @@ export class ndarray {
     this.shape = shape;
   }
 
-  encode() {
+  toJSON() {
     const { shape } = this;
     const data = Base64.fromUint8Array(new Uint8Array(this.data.buffer));
     return { data, shape, type: this.data.constructor.name };

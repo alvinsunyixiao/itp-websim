@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './App.css';
 // material ui stuff
 import Box from '@material-ui/core/Box';
@@ -6,9 +6,12 @@ import Button from '@material-ui/core/Button';
 import Container from '@material-ui/core/Container';
 import Grid from '@material-ui/core/Grid';
 import IconButton from '@material-ui/core/IconButton';
+import Slider from '@material-ui/core/Slider';
 import Tooltip from '@material-ui/core/Tooltip';
+import Typography from '@material-ui/core/Typography';
 // material icons
 import AddCircleRoundedIcon from '@material-ui/icons/AddCircleRounded';
+import AssessmentIcon from '@material-ui/icons/Assessment';
 import DeleteIcon from '@material-ui/icons/Delete';
 import PauseIcon from '@material-ui/icons/Pause';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
@@ -22,6 +25,8 @@ import Plot from 'react-plotly.js';
 import download from 'downloadjs';
 // common species database
 import commonSpecies from './commonSpecies.json';
+// mathjs
+import { range } from 'mathjs';
 
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect } from './Input';
@@ -99,6 +104,84 @@ const SPECIE_TYPE = [
   { label: 'Background', value: 'Background' },
 ];
 
+const ValueLabelTooltip = (props) => {
+  const { children, open, value } = props;
+  return (
+    <Tooltip open={open} placement="top" title={value}>
+      {children}
+    </Tooltip>
+  );
+}
+
+const SimReport = (props) => {
+  const { simResult } = props;
+  const { domainLen } = simResult.input;
+  const [ numSteps, numSpecies, numGrids ] = simResult.output.concentration_tsn.shape;
+  const grid_n = range(0, domainLen * 1e3, domainLen * 1e3 / numGrids).toArray(); // m => mm
+  const [frameIdx, setFrameIdx] = useState(0);
+  const [simLayout, setSimLayout] = useState({
+    title: 'Concentration / pH Plot',
+    xaxis: { title: 'Domain [mm]' },
+    yaxis: { title: 'Concentration [mole / m^3]' },
+    yaxis2: { title: 'pH' },
+    grid: { rows: 2, columns: 1 },
+    autosize: true,
+  });
+  const [simConfig, setSimConfig] = useState({});
+  const concentration_sn = simResult.output.concentration_tsn.data.subarray(
+    frameIdx * numSpecies * numGrids, (frameIdx + 1) * numSpecies * numGrids);
+  const cH_n = simResult.output.cH_tn.data.subarray(frameIdx * numGrids, (frameIdx + 1) * numGrids);
+  return (
+  <>
+    <Grid container key="plotTitle" alignItems="center">
+      <Grid item sm={3}>
+        <h3>Simulation Playback</h3>
+      </Grid>
+      <Grid item sm={6}>
+        <Slider
+          value={ frameIdx }
+          min={0}
+          max={numSteps - 1}
+          step={1}
+          onChange={ (_, val) => setFrameIdx(val) }
+          aria-labelledby="time-step-slider"
+          ValueLabelComponent={ValueLabelTooltip}
+          valueLabelDisplay="auto"
+          valueLabelFormat={(i) => `[${i}] ${simResult.output.time_t.data[i].toFixed(4)} s`}
+        />
+      </Grid>
+      <Grid item sm={1}></Grid>
+      <Grid item sm={2}>
+        t = {simResult.output.time_t.data[frameIdx].toFixed(4) + ' s'}
+      </Grid>
+    </Grid>
+    <Grid container key="plot">
+      <Plot
+        data={
+          simResult.input.species.map((specie, idx) => ({
+            x: grid_n,
+            y: concentration_sn.subarray(idx * numGrids, (idx + 1) * numGrids),
+            name: specie.name + ' -- ' + specie.injectionType,
+          })).concat([{
+            x: grid_n,
+            y: cH_n.map((val) => -Math.log10(val)),
+            yaxis: 'y2',
+            name: 'pH',
+          }])
+        }
+        layout={ simLayout }
+        config={ simConfig }
+        style={{ width: '100%', height: 700 }}
+        useResizeHandler
+        divId='simPlayback'
+        onInitialized={(fig) => {setSimLayout(fig.layout); setSimConfig(fig.config);}}
+        onUpdate={(fig) => {setSimLayout(fig.layout); setSimConfig(fig.config);}}
+      />
+    </Grid>
+  </>
+  );
+};
+
 class SimUI extends React.Component {
   constructor(props) {
     super(props);
@@ -107,14 +190,18 @@ class SimUI extends React.Component {
       data: [],
       config: {},
       layout: {
-        xaxis: { title: { text: 'Domain [mm]' } },
-        yaxis: { title: { text: 'Concentration [mole / m^3]' } },
-        yaxis2: { title: 'pH', overlaying: 'y', side: 'right' },
+        xaxis: { title: 'Domain [mm]' },
+        yaxis: { title: 'Concentration [mole / m^3]' },
+        yaxis2: { title: 'pH' },
         legend: { x: 1.05, },
+        grid: { rows: 2, columns: 1 },
+        autosize: true,
       },
-      // others
+      // simulation status
       running: false,
       initialized: false,
+      genReport: false,
+      // inputs
       species: JSON.parse(localStorage.getItem("species")) || DEFAULT_SPECIES,
       injectionValid: JSON.parse(localStorage.getItem("injectionValid") || false),
     }
@@ -162,9 +249,9 @@ class SimUI extends React.Component {
         const numGrids = input.numGrids;
 
         const concentration_tsn = new ndarray(result.concentration_tsn,
-                                              [numSteps, numSpecies, numGrids]).encode();
-        const cH_tn = new ndarray(result.cH_tn, [numSteps, numGrids]).encode();
-        const time_t = new ndarray(result.time_t, [numSteps]).encode();
+                                              [numSteps, numSpecies, numGrids]);
+        const cH_tn = new ndarray(result.cH_tn, [numSteps, numGrids]);
+        const time_t = new ndarray(result.time_t, [numSteps]);
 
         const simResult = { input, output: { concentration_tsn, cH_tn, time_t } };
         this.setState({ simResult });
@@ -187,7 +274,7 @@ class SimUI extends React.Component {
   }
 
   resetHandler() {
-    this.setState({running: false, initialized: false, simResult: undefined});
+    this.setState({running: false, initialized: false, genReport: false, simResult: undefined});
 
     const input = new SpressoInput(
       this.state.simTime, this.state.animateRate,
@@ -695,28 +782,9 @@ class SimUI extends React.Component {
             }))}
           />
         </Grid></Box>
-        <Grid container key="livePlot">
-        {this.state.initialized ?
-          <Plot
-            data={ this.state.data }
-            layout={ this.state.layout }
-            config={ this.state.config }
-            style={ {width: '100%'} }
-            divId='concentrationPlot'
-            onInitialized={(figure) => this.setState(figure)}
-            onUpdate={(figure) => this.setState(figure)}
-          />
-          :
-          <Plot
-            layout={ {...this.state.layout, title: 'Initializing...'} }
-            config={ this.state.config }
-            style={ {width: '100%'} }
-          />
-        }
-        </Grid>
         <Box mb={3} key="btns"><Grid container alignItems="center" spacing={1}>
           <Grid item key="startPauseBtn">
-            { startPause }
+            { !this.state.genReport && startPause }
           </Grid>
           {!this.state.running &&
             <Grid item key="resetBtn">
@@ -784,7 +852,48 @@ class SimUI extends React.Component {
               </Button>
             </Grid>
           }
+          {!this.state.running && !this.state.genReport &&
+            <Grid item key="report">
+              <Button
+                variant="contained"
+                endIcon={<AssessmentIcon/>}
+                size="small"
+                disabled={ !this.state.simResult }
+                onClick={() => this.setState({genReport: true})}
+              >
+                Analyze
+              </Button>
+            </Grid>
+          }
         </Grid></Box>
+        <Box mb={3} key="report"><Grid container alignItems="center" spacing={1}>
+        {this.state.genReport &&
+          <SimReport simResult={this.state.simResult}/>
+        }
+        </Grid></Box>
+        {!this.state.genReport &&
+        <Grid container key="livePlot">
+        {this.state.initialized ?
+          <Plot
+            data={ this.state.data }
+            layout={ this.state.layout }
+            config={ this.state.config }
+            style={ {width: '100%', height: 700} }
+            useResizeHandler
+            divId='concentrationPlot'
+            onInitialized={(figure) => this.setState(figure)}
+            onUpdate={(figure) => this.setState(figure)}
+          />
+          :
+          <Plot
+            layout={ {...this.state.layout, title: 'Initializing...'} }
+            config={ this.state.config }
+            style={ {width: '100%', height: 700} }
+            useResizeHandler
+          />
+        }
+        </Grid>
+        }
       </div>
     );
   }
