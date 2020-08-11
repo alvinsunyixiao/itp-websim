@@ -114,7 +114,7 @@ class SimUI extends React.Component {
       },
       // others
       running: false,
-      hasResult: false,
+      initialized: false,
       species: JSON.parse(localStorage.getItem("species")) || DEFAULT_SPECIES,
       injectionValid: JSON.parse(localStorage.getItem("injectionValid") || false),
     }
@@ -126,7 +126,7 @@ class SimUI extends React.Component {
     switch (e.data.msg) {
       case 'update':
         this.setState({
-          hasResult: true,
+          initialized: true,
           data: this.state.species.map((specie, specieIdx) => ({
             ...(this.state.data.length === this.state.species.length + 1?
                 this.state.data[specieIdx] : {}),
@@ -150,6 +150,7 @@ class SimUI extends React.Component {
         break;
       case 'finished':
         this.setState({running: false});
+        this.worker.postMessage({msg: 'retrieve'});
         break;
       case 'init':
         console.log('TF is using ' + e.data.backend + ' backend.');
@@ -166,7 +167,7 @@ class SimUI extends React.Component {
         const time_t = new ndarray(result.time_t, [numSteps]).encode();
 
         const simResult = { input, output: { concentration_tsn, cH_tn, time_t } };
-        download(JSON.stringify(simResult), 'result.json', 'application/json');
+        this.setState({ simResult });
         break;
       default:
         console.log('Unrecognized message: ' + e.data.msg);
@@ -186,7 +187,7 @@ class SimUI extends React.Component {
   }
 
   resetHandler() {
-    this.setState({running: false, hasResult: false});
+    this.setState({running: false, initialized: false, simResult: undefined});
 
     const input = new SpressoInput(
       this.state.simTime, this.state.animateRate,
@@ -303,42 +304,27 @@ class SimUI extends React.Component {
   }
 
   render() {
-    const plot = (this.state.layout.title !== undefined) ?
-      <Plot
-        data={ this.state.data }
-        layout={ this.state.layout }
-        config={ this.state.config }
-        style={ {width: '100%'} }
-        divId='concentrationPlot'
-        onInitialized={(figure) => this.setState(figure)}
-        onUpdate={(figure) => this.setState(figure)}
-      />
-      :
-      'Loading';
-    const start_pause = this.state.running ?
-      <Tooltip arrow title="might not stop immediately since the simulation runs in
-                            a seperate thread from the main UI">
-        <Button
-          variant="contained"
-          color="default"
-          endIcon={<PauseIcon/>}
-          size="small"
-          onClick={() => {
-            this.worker.postMessage({msg: 'pause'});
-          }}
-        >
-          Pause
-        </Button>
-      </Tooltip>
+    const startPause = this.state.running ?
+      <Button
+        variant="contained"
+        color="default"
+        endIcon={<PauseIcon/>}
+        size="small"
+        onClick={() => {
+          this.worker.postMessage({msg: 'pause'});
+        }}
+      >
+        Pause
+      </Button>
       :
       <Button
         variant="contained"
         color="primary"
         endIcon={<PlayArrowIcon/>}
         size="small"
-        disabled={ !this.inputValid() || !this.state.hasResult }
+        disabled={ !this.inputValid() || !this.state.initialized }
         onClick={() => {
-          this.setState({running: true});
+          this.setState({running: true, simResult: undefined});
           this.worker.postMessage({msg: 'start'});
         }}
       >
@@ -678,7 +664,7 @@ class SimUI extends React.Component {
           </Grid></Box>
           );
         })}
-        <Box mb={3}><Grid container alignItems="center" key="commonSpecies">
+        <Box mb={3} key="db"><Grid container alignItems="center" key="commonSpecies">
           <MaterialTable
             title={
               <span>
@@ -709,12 +695,31 @@ class SimUI extends React.Component {
             }))}
           />
         </Grid></Box>
-        <Box mb={3}><Grid container alignItems="center" spacing={1}>
-          <Grid item key="start_pause">
-            { start_pause }
+        <Grid container key="livePlot">
+        {this.state.initialized ?
+          <Plot
+            data={ this.state.data }
+            layout={ this.state.layout }
+            config={ this.state.config }
+            style={ {width: '100%'} }
+            divId='concentrationPlot'
+            onInitialized={(figure) => this.setState(figure)}
+            onUpdate={(figure) => this.setState(figure)}
+          />
+          :
+          <Plot
+            layout={ {...this.state.layout, title: 'Initializing...'} }
+            config={ this.state.config }
+            style={ {width: '100%'} }
+          />
+        }
+        </Grid>
+        <Box mb={3} key="btns"><Grid container alignItems="center" spacing={1}>
+          <Grid item key="startPauseBtn">
+            { startPause }
           </Grid>
           {!this.state.running &&
-            <Grid item>
+            <Grid item key="resetBtn">
               <Button color="secondary" variant="contained" size="small"
                       onClick={() => this.resetHandler()}>
                 Reset
@@ -764,14 +769,15 @@ class SimUI extends React.Component {
               </Button>
             </Grid>
           }
-          {!this.state.running && this.state.hasResult &&
+          {!this.state.running &&
             <Grid item key="saveResult">
               <Button
                 variant="contained"
                 endIcon={<SaveAltIcon/>}
                 size="small"
+                disabled={ !this.state.simResult }
                 onClick={() => {
-                  this.worker.postMessage({msg: 'retrieve'});
+                  download(JSON.stringify(this.state.simResult), 'result.json', 'application/json');
                 }
               }>
                 Save Results
@@ -779,9 +785,6 @@ class SimUI extends React.Component {
             </Grid>
           }
         </Grid></Box>
-        <Grid container key="livePlot">
-          { plot }
-        </Grid>
       </div>
     );
   }

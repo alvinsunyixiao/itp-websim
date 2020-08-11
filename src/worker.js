@@ -46,20 +46,15 @@ async function reset(input) {
 
 async function simulate() {
   let shouldContinue = running;
-  for (let i = 0; i < spresso.input.animateRate && shouldContinue; ++i) {
-    shouldContinue = await spresso.simulateStep();
+  while (shouldContinue) {
+    for (let i = 0; i < spresso.input.animateRate && shouldContinue; ++i) {
+      shouldContinue = (await spresso.simulateStep()) && running;
+    }
+    if (updated) { await requestUpdate(); }
   }
-  if (shouldContinue) {
-    setTimeout(simulate, 0);
-  }
-  else {
-    running = false;
-    await requestUpdate();
-    postMessage({msg: 'finished'});
-  }
-  if (updated) {
-    await requestUpdate();
-  }
+  running = false;
+  await requestUpdate();
+  postMessage({msg: 'finished'});
 }
 
 function retrieve() {
