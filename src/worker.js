@@ -49,6 +49,8 @@ async function simulate() {
   while (shouldContinue) {
     for (let i = 0; i < spresso.input.animateRate && shouldContinue; ++i) {
       shouldContinue = (await spresso.simulateStep()) && running;
+      // avoid block message handler
+      if (tf.getBackend() !== 'webgl') { await new Promise(r => setTimeout(r, 0)); }
     }
     if (updated) { await requestUpdate(); }
   }
