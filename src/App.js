@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 // material ui stuff
 import Box from '@material-ui/core/Box';
@@ -118,6 +118,9 @@ const SimReport = (props) => {
   const [ numSteps, numSpecies, numGrids ] = simResult.output.concentration_tsn.shape;
   const grid_n = range(0, domainLen * 1e3, domainLen * 1e3 / numGrids).toArray(); // m => mm
   const [frameIdx, setFrameIdx] = useState(0);
+  const concentration_sn = simResult.output.concentration_tsn.data.subarray(
+    frameIdx * numSpecies * numGrids, (frameIdx + 1) * numSpecies * numGrids);
+  const cH_n = simResult.output.cH_tn.data.subarray(frameIdx * numGrids, (frameIdx + 1) * numGrids);
   const [simLayout, setSimLayout] = useState({
     title: 'Concentration / pH Plot',
     xaxis: { title: 'Domain [mm]' },
@@ -126,10 +129,22 @@ const SimReport = (props) => {
     grid: { rows: 2, columns: 1 },
     autosize: true,
   });
+  const [simData, setSimData] = useState([]);
+  useEffect(() => setSimData(
+    simResult.input.species.map((specie, idx) => ({
+      ...simData[idx],
+      x: grid_n,
+      y: concentration_sn.subarray(idx * numGrids, (idx + 1) * numGrids),
+      name: specie.name + ' -- ' + specie.injectionType,
+    })).concat([{
+      ...simData[simResult.input.species.length],
+      x: grid_n,
+      y: cH_n.map((val) => -Math.log10(val)),
+      yaxis: 'y2',
+      name: 'pH',
+    }])
+  ), [frameIdx]);
   const [simConfig, setSimConfig] = useState({});
-  const concentration_sn = simResult.output.concentration_tsn.data.subarray(
-    frameIdx * numSpecies * numGrids, (frameIdx + 1) * numSpecies * numGrids);
-  const cH_n = simResult.output.cH_tn.data.subarray(frameIdx * numGrids, (frameIdx + 1) * numGrids);
   return (
   <>
     <Grid container key="plotTitle" alignItems="center">
@@ -156,25 +171,16 @@ const SimReport = (props) => {
     </Grid>
     <Grid container key="plot">
       <Plot
-        data={
-          simResult.input.species.map((specie, idx) => ({
-            x: grid_n,
-            y: concentration_sn.subarray(idx * numGrids, (idx + 1) * numGrids),
-            name: specie.name + ' -- ' + specie.injectionType,
-          })).concat([{
-            x: grid_n,
-            y: cH_n.map((val) => -Math.log10(val)),
-            yaxis: 'y2',
-            name: 'pH',
-          }])
-        }
+        data={ simData }
         layout={ simLayout }
         config={ simConfig }
         style={{ width: '100%', height: 700 }}
         useResizeHandler
         divId='simPlayback'
-        onInitialized={(fig) => {setSimLayout(fig.layout); setSimConfig(fig.config);}}
-        onUpdate={(fig) => {setSimLayout(fig.layout); setSimConfig(fig.config);}}
+        onInitialized={(fig) => {
+          setSimLayout(fig.layout); setSimConfig(fig.config); setSimData(fig.data)}}
+        onUpdate={(fig) => {
+          setSimLayout(fig.layout); setSimConfig(fig.config); setSimData(fig.data)}}
       />
     </Grid>
   </>
@@ -214,7 +220,7 @@ class SimUI extends React.Component {
         this.setState({
           initialized: true,
           data: this.state.species.map((specie, specieIdx) => ({
-            ...(this.state.data.length === this.state.species.length + 1?
+            ...(this.state.data.length === this.state.species.length + 1 ?
                 this.state.data[specieIdx] : {}),
             x: e.data.plot.x,
             y: e.data.plot.concentration_sn.subarray(specieIdx * this.state.numGrids,
