@@ -593,13 +593,11 @@ class SimUI extends React.Component {
           // callback function for setting per specie properties
           const setSpecieSpec = (name, value, valid, validName=undefined) => {
             validName = validName || (name + "Valid");
-            this.setState({species: this.state.species.map((specie, idx) => {
-              if (idx === specieIdx) {
-                specie[name] = value;
-                specie[validName] = valid;
-              }
-              return specie;
-            })});
+            this.setState((state) => ({
+              species: state.species.map((specie, idx) => (idx === specieIdx ?
+                {...specie, [name]: value, [validName]: valid} : specie)
+              )
+            }));
           };
 
           return (
