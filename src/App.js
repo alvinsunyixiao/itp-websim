@@ -116,7 +116,7 @@ const SimReport = ({simResult}) => {
   const { domainLen } = simResult.input;
   const [ numSteps, numSpecies, numGrids ] = simResult.output.concentration_tsn.shape;
   const [frameIdx, setFrameIdx] = useState(0);
-  const [simConfig, setSimConfig] = useState({});
+  const [simConfig, setSimConfig] = useState({ responsive: true });
   const [simLayout, setSimLayout] = useState({
     title: 'Concentration / pH Plot',
     xaxis: { title: 'Domain [mm]' },
@@ -174,7 +174,6 @@ const SimReport = ({simResult}) => {
         layout={ simLayout }
         config={ simConfig }
         style={{ width: '100%', height: 700 }}
-        useResizeHandler
         divId='simPlayback'
         onInitialized={(fig) => {
           setSimLayout(fig.layout); setSimConfig(fig.config); setSimData(fig.data)}}
@@ -192,7 +191,7 @@ class SimUI extends React.Component {
     this.state = {
       // react plot
       data: [],
-      config: {},
+      config: { responsive: true },
       layout: {
         xaxis: { title: 'Domain [mm]' },
         yaxis: { title: 'Concentration [mole / m^3]' },
@@ -881,7 +880,6 @@ class SimUI extends React.Component {
             layout={ this.state.layout }
             config={ this.state.config }
             style={ {width: '100%', height: 700} }
-            useResizeHandler
             divId='concentrationPlot'
             onInitialized={(figure) => this.setState(figure)}
             onUpdate={(figure) => this.setState(figure)}
@@ -891,7 +889,6 @@ class SimUI extends React.Component {
             layout={ {...this.state.layout, title: 'Initializing...'} }
             config={ this.state.config }
             style={ {width: '100%', height: 700} }
-            useResizeHandler
           />
         }
         </Grid>
