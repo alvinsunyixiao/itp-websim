@@ -1672,7 +1672,7 @@
     "@types/seedrandom" "2.4.27"
     seedrandom "2.4.3"
 
-"@tensorflow/tfjs-backend-wasm@^2.0.1":
+"@tensorflow/tfjs-backend-wasm@^2.1.0":
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/@tensorflow/tfjs-backend-wasm/-/tfjs-backend-wasm-2.1.0.tgz#9cd2daec942dbfa3edbb882e310f42f5fe39e009"
   integrity sha512-0tjuJjUr/QGawI3DCS7nOj1EIRdZWeR/K8Oez5Ja7hfr4Jfq9F5Zn/nXYrlLeEBFkGsTUZjFy/cIfTkEgA44gw==
@@ -1721,7 +1721,7 @@
   resolved "https://registry.yarnpkg.com/@tensorflow/tfjs-layers/-/tfjs-layers-2.1.0.tgz#76b4e59d0196dc5cccfceb608b76bc37bff2ae86"
   integrity sha512-/3mdeABtRT3M5oy78aVJ2OLGcWoewWoOkmCFr0bI29SEjpsJTWJ8W94GdNtj3Ah5ssT6UyNEaiQpRTGvEmciDw==
 
-"@tensorflow/tfjs@^2.0.1":
+"@tensorflow/tfjs@^2.1.0":
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/@tensorflow/tfjs/-/tfjs-2.1.0.tgz#86a4e28ab4eae962134c186b68b8910e21732df9"
   integrity sha512-oQ/yOmN2LctLJEY5WNivjbIvoVj9FnxHIuTrPjrXXB7Hhk8fEzVCxP09f04r33YatOMx35OnE9tHbootGEm6eA==
@@ -14336,10 +14336,10 @@ worker-farm@^1.7.0:
   dependencies:
     errno "~0.1.7"
 
-worker-plugin@^4.0.3:
-  version "4.0.3"
-  resolved "https://registry.yarnpkg.com/worker-plugin/-/worker-plugin-4.0.3.tgz#7c42e600d5931ad154d3d5f187a32446df64db0f"
-  integrity sha512-7hFDYWiKcE3yHZvemsoM9lZis/PzurHAEX1ej8PLCu818Rt6QqUAiDdxHPCKZctzmhqzPpcFSgvMCiPbtooqAg==
+worker-plugin@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/worker-plugin/-/worker-plugin-5.0.0.tgz#113b5fe1f4a5d6a957cecd29915bedafd70bb537"
+  integrity sha512-AXMUstURCxDD6yGam2r4E34aJg6kW85IiaeX72hi+I1cxyaMUtrvVY6sbfpGKAj5e7f68Acl62BjQF5aOOx2IQ==
   dependencies:
     loader-utils "^1.1.0"
 

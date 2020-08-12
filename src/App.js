@@ -112,15 +112,11 @@ const ValueLabelTooltip = (props) => {
   );
 }
 
-const SimReport = (props) => {
-  const { simResult } = props;
+const SimReport = ({simResult}) => {
   const { domainLen } = simResult.input;
   const [ numSteps, numSpecies, numGrids ] = simResult.output.concentration_tsn.shape;
-  const grid_n = range(0, domainLen * 1e3, domainLen * 1e3 / numGrids).toArray(); // m => mm
   const [frameIdx, setFrameIdx] = useState(0);
-  const concentration_sn = simResult.output.concentration_tsn.data.subarray(
-    frameIdx * numSpecies * numGrids, (frameIdx + 1) * numSpecies * numGrids);
-  const cH_n = simResult.output.cH_tn.data.subarray(frameIdx * numGrids, (frameIdx + 1) * numGrids);
+  const [simConfig, setSimConfig] = useState({});
   const [simLayout, setSimLayout] = useState({
     title: 'Concentration / pH Plot',
     xaxis: { title: 'Domain [mm]' },
@@ -130,21 +126,24 @@ const SimReport = (props) => {
     autosize: true,
   });
   const [simData, setSimData] = useState([]);
-  useEffect(() => setSimData(
-    simResult.input.species.map((specie, idx) => ({
-      ...simData[idx],
+  useEffect(() => {
+    const grid_n = range(0, domainLen * 1e3, domainLen * 1e3 / numGrids).toArray(); // m => mm
+    const concentration_sn = simResult.output.concentration_tsn.data.subarray(
+      frameIdx * numSpecies * numGrids, (frameIdx + 1) * numSpecies * numGrids);
+    const cH_n = simResult.output.cH_tn.data.subarray(frameIdx * numGrids, (frameIdx + 1) * numGrids);
+    setSimData((sData) => simResult.input.species.map((specie, idx) => ({
+      ...sData[idx],
       x: grid_n,
       y: concentration_sn.subarray(idx * numGrids, (idx + 1) * numGrids),
       name: specie.name + ' -- ' + specie.injectionType,
     })).concat([{
-      ...simData[simResult.input.species.length],
+      ...sData[simResult.input.species.length],
       x: grid_n,
       y: cH_n.map((val) => -Math.log10(val)),
       yaxis: 'y2',
       name: 'pH',
-    }])
-  ), [frameIdx]);
-  const [simConfig, setSimConfig] = useState({});
+    }]));
+  }, [frameIdx, simResult, domainLen, numGrids, numSpecies]);
   return (
   <>
     <Grid container key="plotTitle" alignItems="center">
