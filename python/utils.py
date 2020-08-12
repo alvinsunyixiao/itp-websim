@@ -23,11 +23,10 @@ def parse_ndarray(ndarray):
 class SimResult:
     """ class abstraction of simulation results """
 
-    def __init__(self, species, grid_n, concentration_tsn, cH_tn, time_t):
+    def __init__(self, inputs, grid_n, concentration_tsn, cH_tn, time_t):
         """
         Args:
-            species:            list of tuples in the form [(name, type), ...], where type
-                                is one of ['LE', 'TE', 'Analyte', 'Background']
+            inputs:             all simulation inputs
             grid_n:             spatial discretization grid of the channel domain
             concentration_tsn:  all time slices of concentration matrix in [mole / m^3]
             cH_tn:              all time slices of Hydrogen ion concentration in [mole / liter]
@@ -40,7 +39,7 @@ class SimResult:
                 s:  number of species
                 t:  number of time steps
         """
-        self.species = species
+        self.inputs = inputs
         self.grid_n = grid_n
         self.concentration_tsn = concentration_tsn
         self.cH_tn = cH_tn
@@ -53,7 +52,7 @@ class SimResult:
         inp = result['input']
         oup = result['output']
         return SimResult(
-            species=[(sp['name'], sp['injectionType']) for sp in inp['species']],
+            inputs=inp,
             grid_n=np.linspace(0, inp['domainLen'], inp['numGrids'], endpoint=False),
             concentration_tsn=parse_ndarray(oup['concentration_tsn']),
             cH_tn=parse_ndarray(oup['cH_tn']),
