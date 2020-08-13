@@ -16,8 +16,8 @@ const initBackend = async () => {
   else {
     await tf.setBackend('cpu');
   }
-  spresso_sim = await tf.loadGraphModel('/spresso_sim/model.json');
-  spresso_ph = await tf.loadGraphModel('/spresso_ph/model.json');
+  spresso_sim = await tf.loadGraphModel('/spresso-sim/model.json');
+  spresso_ph = await tf.loadGraphModel('/spresso-ph/model.json');
   postMessage({msg: 'init', backend: tf.getBackend()});
 };
 
