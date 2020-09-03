@@ -166,23 +166,15 @@ class SpatialTemporal(GeneralStat):
         return
 
     def _single_species_colormap(self,cmat_tn,hue,saturation):
-    # t = time, n = Ngrid
-    #hue from 0 to 360 degree, fixed
-    #saturation from 0 to 1 (how pure/vivid), fixed
-    #lightness 0=black 1=white, depends on local concentration
-
         hue = hue * np.ones_like(cmat_tn)
 
         cmin = np.amin(cmat_tn)
         cmax = np.amax(cmat_tn)
-        #map to [0,1]
+
         lightness =  0.9 * (cmat_tn - cmin) / (cmax - cmin)
-        #map to [1,0]
-        #lightness = 1 -  lightness
 
         saturation = saturation * np.ones_like(cmat_tn)
 
-        #hls stacked, then convert to rgb
         img_hls = np.dstack((hue,lightness,saturation))
         img_rgb = cv2.cvtColor(img_hls.astype(np.float32),cv2.COLOR_HLS2RGB)
         return img_rgb
