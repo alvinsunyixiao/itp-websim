@@ -1672,10 +1672,8 @@
     "@types/seedrandom" "2.4.27"
     seedrandom "2.4.3"
 
-"@tensorflow/tfjs-backend-wasm@^2.1.0":
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/@tensorflow/tfjs-backend-wasm/-/tfjs-backend-wasm-2.1.0.tgz#9cd2daec942dbfa3edbb882e310f42f5fe39e009"
-  integrity sha512-0tjuJjUr/QGawI3DCS7nOj1EIRdZWeR/K8Oez5Ja7hfr4Jfq9F5Zn/nXYrlLeEBFkGsTUZjFy/cIfTkEgA44gw==
+"@tensorflow/tfjs-backend-wasm@file:../.yalc/packages/@tensorflow/tfjs-backend-wasm/0.0.0":
+  version "0.0.0-1da3446e"
   dependencies:
     "@types/emscripten" "~0.0.34"
 
@@ -1695,6 +1693,16 @@
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/@tensorflow/tfjs-converter/-/tfjs-converter-2.1.0.tgz#3dd226f11cab412cebf0b3f8d2b7f69bbfee994f"
   integrity sha512-AAKUOTRDhhbIUM++7sD+WzSw8OKmykBCLAh6iGZkil12NL90gALhTfMH+9IkI+vTybKvbNlHiSUYVWoNek7zMw==
+
+"@tensorflow/tfjs-core@/home/alvin/.yalc/packages/@tensorflow/tfjs-core/0.0.0":
+  version "0.0.0-c86a7a30"
+  dependencies:
+    "@types/offscreencanvas" "~2019.3.0"
+    "@types/seedrandom" "2.4.27"
+    "@types/webgl-ext" "0.0.30"
+    "@types/webgl2" "0.0.4"
+    node-fetch "~2.1.2"
+    seedrandom "2.4.3"
 
 "@tensorflow/tfjs-core@2.1.0":
   version "2.1.0"

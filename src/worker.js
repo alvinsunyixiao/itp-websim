@@ -1,5 +1,6 @@
 import { Spresso } from './Spresso';
 import * as tf from '@tensorflow/tfjs';
+import {setWasmPath} from '@tensorflow/tfjs-backend-wasm';
 
 let spresso = undefined;
 let running = false;
@@ -10,12 +11,8 @@ let spresso_ph = undefined;
 
 const initBackend = async () => {
   tf.enableProdMode();
-  if (tf.ENV.getBool('WEBGL_RENDER_FLOAT32_CAPABLE')) {
-    await tf.setBackend('webgl');
-  }
-  else {
-    await tf.setBackend('cpu');
-  }
+  setWasmPath('/tfjs-wasm/tfjs-backend-wasm.wasm');
+  await tf.setBackend('wasm');
   spresso_sim = await tf.loadGraphModel('/spresso-sim/model.json');
   spresso_ph = await tf.loadGraphModel('/spresso-ph/model.json');
   postMessage({msg: 'init', backend: tf.getBackend()});
@@ -49,7 +46,7 @@ async function simulate() {
   while (shouldContinue) {
     for (let i = 0; i < spresso.input.animateRate && shouldContinue; ++i) {
       shouldContinue = (await spresso.simulateStep()) && running;
-      // avoid block message handler
+      // avoid blocking message handler
       if (tf.getBackend() !== 'webgl') { await new Promise(r => setTimeout(r, 0)); }
     }
     if (updated) { await requestUpdate(); }
