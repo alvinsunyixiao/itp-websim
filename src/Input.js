@@ -4,6 +4,14 @@ import TextField from '@material-ui/core/TextField';
 import MenuItem from '@material-ui/core/MenuItem';
 import Tooltip from '@material-ui/core/Tooltip';
 
+import {withStyles} from '@material-ui/core/styles';
+
+const LargeTooltip = withStyles({
+  tooltip: {
+    fontSize: "1em",
+  }
+})(Tooltip);
+
 class Input extends React.Component {
   constructor(props) {
     super(props);
@@ -54,7 +62,7 @@ export class InputNumber extends Input {
       :
       this.props.children;
     return (
-      <Tooltip title={ descTitle } enterDelay={400} arrow>
+      <LargeTooltip title={ descTitle } enterDelay={400} arrow>
         <TextField
           fullWidth
           error={ !valid }
@@ -69,7 +77,7 @@ export class InputNumber extends Input {
           onChange={ (event) => this.onChange(event) }
           {...props}
         />
-      </Tooltip>
+      </LargeTooltip>
     );
   }
 }
@@ -79,7 +87,7 @@ export class InputText extends Input {
     const { name, value, label, readOnly, valid, invalidText } = this.props;
     const props = { name, label };
     return (
-      <Tooltip title={ this.props.children } enterDelay={400} arrow>
+      <LargeTooltip title={ this.props.children } enterDelay={400} arrow>
         <TextField
           fullWidth
           error={ !valid }
@@ -94,7 +102,7 @@ export class InputText extends Input {
           onChange={ (event) => this.onChange(event) }
           {...props}
         />
-      </Tooltip>
+      </LargeTooltip>
     );
   }
 }
@@ -104,7 +112,7 @@ export class InputSelect extends Input {
     const { options, name, value, label } = this.props;
     const props = { name, label };
     return (
-      <Tooltip title={ this.props.children } enterDelay={400} arrow>
+      <LargeTooltip title={ this.props.children } enterDelay={400} arrow>
         <TextField
           select
           fullWidth
@@ -122,7 +130,7 @@ export class InputSelect extends Input {
             </MenuItem>
           ))}
         </TextField>
-      </Tooltip>
+      </LargeTooltip>
     );
   }
 }

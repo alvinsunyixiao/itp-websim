@@ -44,7 +44,7 @@ const DEFAULT_INPUT = {
   // data related
   domainLen:        '40',
   current:          '10',
-  area:             '1400e-6',
+  area:             '1400',
 };
 
 const DEFAULT_SPECIES = [
@@ -120,7 +120,7 @@ const SimReport = ({simResult}) => {
   const [simLayout, setSimLayout] = useState({
     title: 'Concentration / pH Plot',
     xaxis: { title: 'Domain [mm]' },
-    yaxis: { title: 'Concentration [mole / m^3]' },
+    yaxis: { title: 'Concentration [mM]' },
     yaxis2: { title: 'pH' },
     grid: { rows: 2, columns: 1 },
     autosize: true,
@@ -194,7 +194,7 @@ class SimUI extends React.Component {
       config: { responsive: true },
       layout: {
         xaxis: { title: 'Domain [mm]' },
-        yaxis: { title: 'Concentration [mole / m^3]' },
+        yaxis: { title: 'Concentration [mM]' },
         yaxis2: { title: 'pH' },
         legend: { x: 1.05, },
         grid: { rows: 2, columns: 1 },
@@ -234,7 +234,7 @@ class SimUI extends React.Component {
           }]),
           layout: {
             ...this.state.layout,
-            title: { text: 'Concentration / pH @ t = ' + e.data.t.toFixed(4) + ' s' },
+            title: { text: 'Concentration / pH @ t = ' + e.data.t.toFixed(2) + ' s' },
           },
         });
         break;
@@ -567,18 +567,18 @@ class SimUI extends React.Component {
                 cache
                 valid={ this.state.areaValid || false }
                 invalidText="Must be positive"
-                label={ "Area [mm^2]" }
+                label="Area [&mu;m^2]"
                 name="area"
                 update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
                 value={ this.state.area }
                 defaultValue={ DEFAULT_INPUT.area }
               >
-                Cross section area of the channel in [mm<sup>2</sup>].
+                Cross section area of the channel in [&mu;m<sup>2</sup>].
               </InputNumber>
             </Grid>
           </Grid>
           <Grid item sm={1} key="add_button">
-            <Tooltip arrow title="Add a specie">
+            <Tooltip arrow title="Add a species">
               <IconButton onClick={() => {
                 this.setState({species: [...this.state.species, {}]});
               }}>
@@ -603,7 +603,7 @@ class SimUI extends React.Component {
             <Grid container item sm={4} spacing={1}>
               <Grid item sm={7} key="name">
                 <InputText
-                  label="Specie Name"
+                  label="Species Name"
                   valid={ specie.nameValid || false }
                   invalidText="Must not be empty"
                   name={ "Specie" + specieIdx }
@@ -611,7 +611,7 @@ class SimUI extends React.Component {
                   defaultValue={ "Specie " + specieIdx }
                   update={(name, value) => setSpecieSpec("name", value, !(!value))}
                 >
-                  Specie Name.
+                  Species Name.
                 </InputText>
               </Grid>
               <Grid item sm={5} key="injectionType">
@@ -631,7 +631,7 @@ class SimUI extends React.Component {
               {specie.injectionType === 'Analyte' &&
               <Grid item sm={4} key="injectionAmount">
                 <InputNumber
-                  label="N"
+                  label={ <i>N</i> }
                   valid={ specie.injectionAmountValid || false }
                   invalidText="Must be positive"
                   name={ "injectionAmount" + specie.name }
@@ -646,7 +646,7 @@ class SimUI extends React.Component {
               {specie.injectionType !== 'Analyte' &&
               <Grid item sm={4} key="initConcentration">
                 <InputNumber
-                  label={ <span>c<sub>0</sub></span> }
+                  label={ <i><span>c<sub>0</sub></span></i> }
                   valid={ specie.initConcentrationValid || false }
                   invalidText="Must be positive"
                   name={ "initConcentration" + specie.name }
@@ -654,14 +654,14 @@ class SimUI extends React.Component {
                   update={(name, value) => setSpecieSpec("initConcentration", value,
                     parseFloat(value) > 0)}
                 >
-                  Initial concentration in [mole / m<sup>3</sup>].
+                  Initial concentration in [mM].
                 </InputNumber>
               </Grid>
               }
               {specie.injectionType !== 'Background' &&
               <Grid item sm={4} key="injectionLoc">
                 <InputNumber
-                  label={ <span>x<sub>inj</sub></span> }
+                  label={ <i><span>x<sub>inj</sub></span></i> }
                   validEmbed
                   valid={ this.state.injectionValid }
                   invalidText="Concentration gaps present. Please bring injections
@@ -677,7 +677,7 @@ class SimUI extends React.Component {
               {specie.injectionType === 'Analyte' &&
               <Grid item sm={4} key="injectionWidth">
                 <InputNumber
-                  label="h"
+                  label={ <i>w</i> }
                   validEmbed
                   valid={ this.state.injectionValid }
                   invalidText="Concentration gaps present. Please bring injections
@@ -712,22 +712,23 @@ class SimUI extends React.Component {
               </Grid>
               <Grid item sm={4} key="mobility">
                 <InputText
-                  label="&mu;"
+                  label={ <i>&mu;</i> }
                   valid= { specie.propertyValid || false }
                   name={ "mobility" + specie.name }
                   value={ specie.mobility }
                   update={(name, value) => setSpecieSpec("mobility", value,
                     this.validateProperties(specie, 'mobility', value), 'propertyValid')}
                 >
-                  Mobility at each valence in [10<sup>-9</sup>m<sup>2</sup>/(V&middot;s)]. <br/>
+                  <strong>Absolute</strong> mobility at each valence in
+                  [10<sup>-9</sup>m<sup>2</sup>/(V&middot;s)].<br/>
                   <strong style={{color: 'cyan'}}>Format</strong>:
-                    a comma seperated list of numbers (must have the
+                    a comma seperated list of positive numbers (must have the
                     same number of entries as the number of valences.
                 </InputText>
               </Grid>
               <Grid item sm={4} key="pKa">
                 <InputText
-                  label="pKa"
+                  label={ <i>pKa</i> }
                   valid= { specie.propertyValid || false }
                   name={ "pKa" + specie.name }
                   value={ specie.pKa }

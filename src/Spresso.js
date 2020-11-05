@@ -86,8 +86,8 @@ export class SpressoInput {
       tolerance:      parseFloat(this.tolerance),
       interfaceWidth: parseFloat(this.interfaceWidth) * 1e-3,
       domainLen:      parseFloat(this.domainLen) * 1e-3,
-      current:        -parseFloat(this.current) / parseFloat(this.area),
-      area:           parseFloat(this.area) * 1e-6,
+      current:        -parseFloat(this.current) / parseFloat(this.area * 1e-6),
+      area:           parseFloat(this.area) * 1e-12,
       species:        this.species.map((specie) => ({
         ...this.parseProperties(specie, maxNumValence),
         name:               specie.name,
