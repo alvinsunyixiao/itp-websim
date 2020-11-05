@@ -31,7 +31,7 @@ import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect } from './Input';
 import { ndarray } from './ndarray';
 
-const VERSION = 'spresso_v1';
+const VERSION = 'spresso_v1.1';
 
 const DEFAULT_INPUT = {
   // simulation related
