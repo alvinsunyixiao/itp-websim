@@ -19,6 +19,7 @@ import SaveAltIcon from '@material-ui/icons/SaveAlt';
 import SaveIcon from '@material-ui/icons/Save';
 import MaterialTable from "material-table";
 // plotly
+import Plotly from 'plotly.js-basic-dist';
 import createPlotlyComponent from 'react-plotly.js/factory';
 // download file from frontend
 import download from 'downloadjs';
@@ -33,7 +34,7 @@ import { ndarray } from './ndarray';
 
 const VERSION = 'spresso_v1.1';
 
-const Plot = createPlotlyComponent(window.Plotly);
+const Plot = createPlotlyComponent(Plotly);
 
 const DEFAULT_INPUT = {
   // simulation related
