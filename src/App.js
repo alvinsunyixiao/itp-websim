@@ -24,8 +24,6 @@ import createPlotlyComponent from 'react-plotly.js/factory';
 import download from 'downloadjs';
 // common species database
 import commonSpecies from './commonSpecies.json';
-// mathjs
-import { range } from 'mathjs';
 
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect } from './Input';
@@ -129,7 +127,10 @@ const SimReport = ({simResult}) => {
   });
   const [simData, setSimData] = useState([]);
   useEffect(() => {
-    const grid_n = range(0, domainLen * 1e3, domainLen * 1e3 / numGrids).toArray(); // m => mm
+    const grid_n = []
+    for (let i = 0; i < numGrids; i++) {
+      grid_n.push(i * domainLen / numGrids * 1e3);  // m => mm
+    }
     const concentration_sn = simResult.output.concentration_tsn.data.subarray(
       frameIdx * numSpecies * numGrids, (frameIdx + 1) * numSpecies * numGrids);
     const cH_n = simResult.output.cH_tn.data.subarray(frameIdx * numGrids, (frameIdx + 1) * numGrids);

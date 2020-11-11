@@ -1,5 +1,4 @@
 import * as tf from '@tensorflow/tfjs';
-import { range, chain } from 'mathjs';
 
 /*
  * simTime:      physical time in [s]
@@ -108,8 +107,11 @@ export class Spresso {
     this.model_ph = model_ph;
     this.dx = input.domainLen / input.numGrids;
     this.step = 0;
-    const grid_n_arr = range(0, input.domainLen, this.dx);
-    this.grid_n = tf.tensor1d(grid_n_arr.toArray());
+    const grid_n_arr = [];
+    for (let i = 0; i < input.numGrids; i++) {
+      grid_n_arr.push(i * input.domainLen / input.numGrids);
+    }
+    this.grid_n = tf.tensor1d(grid_n_arr);
     this.t = 0.;
     // initial concentration
     const concentration_sn = input.species.map(specie => {
@@ -118,24 +120,24 @@ export class Spresso {
       switch (specie.injectionType) {
         case 'TE':
           return tf.tidy(() => {
-            const erf_te = tf.tensor1d(chain(grid_n_arr)
-              .add(-injectionLoc).divide(.5*interfaceWidth).erf().done().toArray());
+            const erf_te = tf.tensor1d(grid_n_arr)
+              .add(-injectionLoc).div(.5*interfaceWidth).erf();
             return erf_te.neg().add(1).mul(initConcentration/2);
           });
         case 'LE':
           return tf.tidy(() => {
-            const erf_le = tf.tensor1d(chain(grid_n_arr)
-              .add(-injectionLoc).divide(.5*interfaceWidth).erf().done().toArray());
+            const erf_le = tf.tensor1d(grid_n_arr)
+              .add(-injectionLoc).div(.5*interfaceWidth).erf();
             return erf_le.add(1).mul(initConcentration/2);
           });
         case 'Analyte':
           return tf.tidy(() => {
-            const erf_l = tf.tensor1d(chain(grid_n_arr)
+            const erf_l = tf.tensor1d(grid_n_arr)
               .add(-injectionLoc+injectionWidth/2)
-              .divide(.5*interfaceWidth).erf().done().toArray());
-            const erf_r = tf.tensor1d(chain(grid_n_arr)
+              .div(.5*interfaceWidth).erf();
+            const erf_r = tf.tensor1d(grid_n_arr)
               .add(-injectionLoc-injectionWidth/2)
-              .divide(.5*interfaceWidth).erf().done().toArray());
+              .div(.5*interfaceWidth).erf();
             const lhs = erf_l.add(1);
             const rhs = erf_r.add(1);
             const c_raw = lhs.sub(rhs);
