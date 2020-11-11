@@ -11,10 +11,10 @@ let spresso_ph = undefined;
 
 const initBackend = async () => {
   tf.enableProdMode();
-  setWasmPath('/tfjs-wasm/tfjs-backend-wasm.wasm');
+  setWasmPath('/web-itp/tfjs-wasm/tfjs-backend-wasm.wasm');
   await tf.setBackend('wasm');
-  spresso_sim = await tf.loadGraphModel('/spresso-sim/model.json');
-  spresso_ph = await tf.loadGraphModel('/spresso-ph/model.json');
+  spresso_sim = await tf.loadGraphModel('/web-itp/spresso-sim/model.json');
+  spresso_ph = await tf.loadGraphModel('/web-itp/spresso-ph/model.json');
   postMessage({msg: 'init', backend: tf.getBackend()});
 };
 
