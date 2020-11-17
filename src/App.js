@@ -7,7 +7,6 @@ import Container from '@material-ui/core/Container';
 import Grid from '@material-ui/core/Grid';
 import IconButton from '@material-ui/core/IconButton';
 import Slider from '@material-ui/core/Slider';
-import Tooltip from '@material-ui/core/Tooltip';
 // material icons
 import AddCircleRoundedIcon from '@material-ui/icons/AddCircleRounded';
 import AssessmentIcon from '@material-ui/icons/Assessment';
@@ -29,7 +28,7 @@ import commonSpecies from './commonSpecies.json';
 import { range } from 'mathjs';
 
 import { SpressoInput } from './Spresso';
-import { InputNumber, InputText, InputSelect } from './Input';
+import { InputNumber, InputText, InputSelect, LargeTooltip } from './Input';
 import { ndarray } from './ndarray';
 
 const VERSION = 'spresso_v1.1';
@@ -109,9 +108,9 @@ const SPECIE_TYPE = [
 const ValueLabelTooltip = (props) => {
   const { children, open, value } = props;
   return (
-    <Tooltip open={open} placement="top" title={value}>
+    <LargeTooltip open={open} placement="top" title={value}>
       {children}
-    </Tooltip>
+    </LargeTooltip>
   );
 }
 
@@ -163,12 +162,12 @@ const SimReport = ({simResult}) => {
           aria-labelledby="time-step-slider"
           ValueLabelComponent={ValueLabelTooltip}
           valueLabelDisplay="auto"
-          valueLabelFormat={(i) => `[${i}] ${simResult.output.time_t.data[i].toFixed(4)} s`}
+          valueLabelFormat={(i) => `[${i}] ${simResult.output.time_t.data[i].toFixed(2)} s`}
         />
       </Grid>
       <Grid item sm={1}></Grid>
       <Grid item sm={2}>
-        t = {simResult.output.time_t.data[frameIdx].toFixed(4) + ' s'}
+        t = {simResult.output.time_t.data[frameIdx].toFixed(2) + ' s'}
       </Grid>
     </Grid>
     <Grid container key="plot">
@@ -440,7 +439,7 @@ class SimUI extends React.Component {
             textAlign="center"
             borderRadius={16}
           >
-            <h1>Spresso Simulator</h1>
+            <h1>Stanford Isotachphoresis Simulation</h1>
           </Box>
         </Grid>
         <Box mb={2} key="basic"><Grid container>
@@ -581,13 +580,13 @@ class SimUI extends React.Component {
             </Grid>
           </Grid>
           <Grid item sm={1} key="add_button">
-            <Tooltip arrow title="Add a species">
+            <LargeTooltip arrow title="Add a species">
               <IconButton onClick={() => {
                 this.setState({species: [...this.state.species, {}]});
               }}>
                 <AddCircleRoundedIcon/>
               </IconButton>
-            </Tooltip>
+            </LargeTooltip>
           </Grid>
         </Grid></Box>
         {this.state.species.map((specie, specieIdx) => {
@@ -756,13 +755,20 @@ class SimUI extends React.Component {
           </Grid></Box>
           );
         })}
+
         <Box mb={3} key="db"><Grid container alignItems="center" key="commonSpecies">
           <MaterialTable
             title={
-              <span>
+              <LargeTooltip title={
+                <span>
+                  <strong style={{color: 'yellow'}}>Warning: </strong>
+                  A large portion of the entries in this data base are based on the
+                  work of Hirokawa et al., J. Chromatogr. 252 (1982) 49.
+                  We cannot guarantee all of the data is correct.
+                </span>
+              }>
                 <h4>Common Species</h4>
-                <p style={{color: 'red'}}>Use with caution, not error free</p>
-              </span>
+              </LargeTooltip>
             }
             style={ { width: '90%' } }
             options={ { maxBodyHeight: 300, padding: 'dense' } }
@@ -787,6 +793,7 @@ class SimUI extends React.Component {
             }))}
           />
         </Grid></Box>
+
         <Box mb={3} key="btns"><Grid container alignItems="center" spacing={1}>
           <Grid item key="startPauseBtn">
             { !this.state.genReport && startPause }

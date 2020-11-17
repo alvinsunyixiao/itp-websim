@@ -6,7 +6,7 @@ import Tooltip from '@material-ui/core/Tooltip';
 
 import {withStyles} from '@material-ui/core/styles';
 
-const LargeTooltip = withStyles({
+export const LargeTooltip = withStyles({
   tooltip: {
     fontSize: "1em",
   }
