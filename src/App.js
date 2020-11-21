@@ -439,7 +439,7 @@ class SimUI extends React.Component {
             textAlign="center"
             borderRadius={16}
           >
-            <h1>Stanford Isotachphoresis Simulation</h1>
+            <h1>Stanford Isotachophoresis Simulation</h1>
           </Box>
         </Grid>
         <Box mb={2} key="basic"><Grid container>
