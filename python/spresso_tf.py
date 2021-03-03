@@ -274,6 +274,6 @@ if __name__ == '__main__':
     args = parse_args()
     # make sure output path exist
     Path(args.output).mkdir(parents=True, exist_ok=True)
-    save_tf_model(SpressoSim(), args.output, 'spresso_sim')
-    save_tf_model(SpressoPH(), args.output, 'spresso_ph')
+    save_tf_model(SpressoSim(), args.output, 'spresso-sim')
+    save_tf_model(SpressoPH(), args.output, 'spresso-ph')
 
