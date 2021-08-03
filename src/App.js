@@ -7,6 +7,7 @@ import Container from '@material-ui/core/Container';
 import Grid from '@material-ui/core/Grid';
 import IconButton from '@material-ui/core/IconButton';
 import Slider from '@material-ui/core/Slider';
+import Typography from '@material-ui/core/Typography';
 // material icons
 import AddCircleRoundedIcon from '@material-ui/icons/AddCircleRounded';
 import AssessmentIcon from '@material-ui/icons/Assessment';
@@ -31,7 +32,7 @@ import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect, LargeTooltip } from './Input';
 import { ndarray } from './ndarray';
 
-const VERSION = 'spresso_v1.1';
+const VERSION = 'spresso_v1.2';
 
 const Plot = createPlotlyComponent(Plotly);
 
@@ -45,7 +46,7 @@ const DEFAULT_INPUT = {
   tolerance:        '1e-2',
   // data related
   domainLen:        '40',
-  current:          '10',
+  current:          '-10',
   area:             '1400',
 };
 
@@ -99,10 +100,10 @@ const DEFAULT_SPECIES = [
 ];
 
 const SPECIE_TYPE = [
-  { label: 'TE', value: 'TE' },
-  { label: 'LE', value: 'LE' },
-  { label: 'Analyte', value: 'Analyte' },
-  { label: 'Background', value: 'Background' },
+  { label: 'Left Plateau', value: 'TE' },
+  { label: 'Right Plateau', value: 'LE' },
+  { label: 'Peak / Plateau', value: 'Analyte' },
+  { label: 'Uniform', value: 'Background' },
 ];
 
 const ValueLabelTooltip = (props) => {
@@ -209,6 +210,8 @@ class SimUI extends React.Component {
       // inputs
       species: JSON.parse(localStorage.getItem("species")) || DEFAULT_SPECIES,
       injectionValid: JSON.parse(localStorage.getItem("injectionValid") || false),
+      // outputs option
+      outputsize: 1,
     }
     this.worker = new Worker('./worker.js', { type: 'module' });
     this.worker.onmessage = (e) => this.workerHandler(e);
@@ -554,14 +557,13 @@ class SimUI extends React.Component {
               <InputNumber
                 cache
                 valid={ this.state.currentValid || false }
-                invalidText="Must be positive"
                 label="Current [&mu;A]"
                 name="current"
-                update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
+                update={(name, value) => inputUpdate(name, value, true)}
                 value={ this.state.current }
                 defaultValue={ DEFAULT_INPUT.current }
               >
-                Electrical current in [&mu;A].
+                Electrical current in [&mu;A] with positive direction pointing right.
               </InputNumber>
             </Grid>
             <Grid item sm={3} key="area">
@@ -794,7 +796,7 @@ class SimUI extends React.Component {
           />
         </Grid></Box>
 
-        <Box mb={3} key="btns"><Grid container alignItems="center" spacing={1}>
+        <Box mb={3} key="btns"><Grid container alignItems="center" spacing={2}>
           <Grid item key="startPauseBtn">
             { !this.state.genReport && startPause }
           </Grid>
@@ -849,21 +851,6 @@ class SimUI extends React.Component {
               </Button>
             </Grid>
           }
-          {!this.state.running &&
-            <Grid item key="saveResult">
-              <Button
-                variant="contained"
-                endIcon={<SaveAltIcon/>}
-                size="small"
-                disabled={ !this.state.simResult }
-                onClick={() => {
-                  download(JSON.stringify(this.state.simResult), 'result.json', 'application/json');
-                }
-              }>
-                Save Results
-              </Button>
-            </Grid>
-          }
           {!this.state.running && !this.state.genReport &&
             <Grid item key="report">
               <Button
@@ -875,6 +862,49 @@ class SimUI extends React.Component {
               >
                 Analyze
               </Button>
+            </Grid>
+          }
+          {!this.state.running &&
+            <Grid item key="saveResultButton">
+              <LargeTooltip title={
+                <div>
+                  Use the slidebar to adjust downsample rate before saving the results.
+                  The downsample rate (default to 1) indicates how many time steps to skip per
+                  saved sample. If the size of the simulation is too large
+                  (e.g. fine grid and / or long simulation) for the memory
+                  to handle, try setting a higher downsample rate.
+                </div>
+              } enterDelay={400} arrow>
+                <Button
+                  variant="contained"
+                  endIcon={<SaveAltIcon/>}
+                  size="small"
+                  disabled={ !this.state.simResult }
+                  onClick={() => {
+                    download(JSON.stringify(this.state.simResult), 'result.json', 'application/json');
+                  }
+                }>
+                  Save Results
+                </Button>
+              </LargeTooltip>
+            </Grid>
+          }
+          {!this.state.running &&
+            <Grid item key="saveResultSlider" sm={2}>
+              <Typography id="input-slider">
+                Downsample Rate
+              </Typography>
+              <Slider
+                value={this.state.outputsize}
+                min={1}
+                max={100}
+                step={1}
+                onChange={ (_, val) => this.setState({outputsize: val}) }
+                aria-labelledby="result-resolution-slider"
+                ValueLabelComponent={ValueLabelTooltip}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(i) => `${i}`}
+              />
             </Grid>
           }
         </Grid></Box>
