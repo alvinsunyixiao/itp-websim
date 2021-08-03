@@ -21,8 +21,10 @@ import MaterialTable from "material-table";
 // plotly
 import Plotly from 'plotly.js-basic-dist';
 import createPlotlyComponent from 'react-plotly.js/factory';
+// JSZip
+import JSZip from "jszip";
 // download file from frontend
-import download from 'downloadjs';
+import { saveAs } from 'file-saver';
 // common species database
 import commonSpecies from './commonSpecies.json';
 // mathjs
@@ -30,7 +32,6 @@ import { range } from 'mathjs';
 
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect, LargeTooltip } from './Input';
-import { ndarray } from './ndarray';
 
 const VERSION = 'spresso_v1.2';
 
@@ -117,7 +118,9 @@ const ValueLabelTooltip = (props) => {
 
 const SimReport = ({simResult}) => {
   const { domainLen } = simResult.input;
-  const [ numSteps, numSpecies, numGrids ] = simResult.output.concentration_tsn.shape;
+  const numSteps = simResult.output.time_t.length;
+  const numSpecies = simResult.input.species.length;
+  const numGrids = simResult.input.numGrids;
   const [frameIdx, setFrameIdx] = useState(0);
   const [simConfig, setSimConfig] = useState({ responsive: true });
   const [simLayout, setSimLayout] = useState({
@@ -131,9 +134,9 @@ const SimReport = ({simResult}) => {
   const [simData, setSimData] = useState([]);
   useEffect(() => {
     const grid_n = range(0, domainLen * 1e3, domainLen * 1e3 / numGrids).toArray(); // m => mm
-    const concentration_sn = simResult.output.concentration_tsn.data.subarray(
+    const concentration_sn = simResult.output.concentration_tsn.subarray(
       frameIdx * numSpecies * numGrids, (frameIdx + 1) * numSpecies * numGrids);
-    const cH_n = simResult.output.cH_tn.data.subarray(frameIdx * numGrids, (frameIdx + 1) * numGrids);
+    const cH_n = simResult.output.cH_tn.subarray(frameIdx * numGrids, (frameIdx + 1) * numGrids);
     setSimData((sData) => simResult.input.species.map((specie, idx) => ({
       ...sData[idx],
       x: grid_n,
@@ -163,12 +166,12 @@ const SimReport = ({simResult}) => {
           aria-labelledby="time-step-slider"
           ValueLabelComponent={ValueLabelTooltip}
           valueLabelDisplay="auto"
-          valueLabelFormat={(i) => `[${i}] ${simResult.output.time_t.data[i].toFixed(2)} s`}
+          valueLabelFormat={(i) => `[${i}] ${simResult.output.time_t[i].toFixed(2)} s`}
         />
       </Grid>
       <Grid item sm={1}></Grid>
       <Grid item sm={2}>
-        t = {simResult.output.time_t.data[frameIdx].toFixed(2) + ' s'}
+        t = {simResult.output.time_t[frameIdx].toFixed(2) + ' s'}
       </Grid>
     </Grid>
     <Grid container key="plot">
@@ -210,8 +213,8 @@ class SimUI extends React.Component {
       // inputs
       species: JSON.parse(localStorage.getItem("species")) || DEFAULT_SPECIES,
       injectionValid: JSON.parse(localStorage.getItem("injectionValid") || false),
-      // outputs option
-      outputsize: 1,
+      // download status
+      downloading: false,
     }
     this.worker = new Worker('./worker.js', { type: 'module' });
     this.worker.onmessage = (e) => this.workerHandler(e);
@@ -252,16 +255,7 @@ class SimUI extends React.Component {
         break;
       case 'data':
         const { result, input } = e.data;
-        const numSteps = result.time_t.length;
-        const numSpecies = input.species.length;
-        const numGrids = input.numGrids;
-
-        const concentration_tsn = new ndarray(result.concentration_tsn,
-                                              [numSteps, numSpecies, numGrids]);
-        const cH_tn = new ndarray(result.cH_tn, [numSteps, numGrids]);
-        const time_t = new ndarray(result.time_t, [numSteps]);
-
-        const simResult = { input, output: { concentration_tsn, cH_tn, time_t } };
+        const simResult = { input: input, output: result };
         this.setState({ simResult });
         break;
       default:
@@ -823,7 +817,8 @@ class SimUI extends React.Component {
                     frames: undefined,
                     running: undefined,
                   }, null, 2);
-                  download(content, 'config.json', 'application/json');
+                  const blob = new Blob([content], {type: 'application/json'});
+                  saveAs(blob, 'config.json');
                 }
               }>
                 Save Config
@@ -866,45 +861,34 @@ class SimUI extends React.Component {
           }
           {!this.state.running &&
             <Grid item key="saveResultButton">
-              <LargeTooltip title={
-                <div>
-                  Use the slidebar to adjust downsample rate before saving the results.
-                  The downsample rate (default to 1) indicates how many time steps to skip per
-                  saved sample. If the size of the simulation is too large
-                  (e.g. fine grid and / or long simulation) for the memory
-                  to handle, try setting a higher downsample rate.
-                </div>
-              } enterDelay={400} arrow>
-                <Button
-                  variant="contained"
-                  endIcon={<SaveAltIcon/>}
-                  size="small"
-                  disabled={ !this.state.simResult }
-                  onClick={() => {
-                    download(JSON.stringify(this.state.simResult), 'result.json', 'application/json');
-                  }
-                }>
-                  Save Results
-                </Button>
-              </LargeTooltip>
-            </Grid>
-          }
-          {!this.state.running &&
-            <Grid item key="saveResultSlider" sm={2}>
-              <Typography id="input-slider">
-                Downsample Rate
-              </Typography>
-              <Slider
-                value={this.state.outputsize}
-                min={1}
-                max={100}
-                step={1}
-                onChange={ (_, val) => this.setState({outputsize: val}) }
-                aria-labelledby="result-resolution-slider"
-                ValueLabelComponent={ValueLabelTooltip}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(i) => `${i}`}
-              />
+              <Button
+                variant="contained"
+                endIcon={<SaveAltIcon/>}
+                size="small"
+                disabled={ !this.state.simResult || this.state.downloading }
+                onClick={() => {
+                  this.setState({downloading: true});
+                  const zip = new JSZip();
+                  const folder = zip.folder('Simulation Results');
+                  folder.file("concentration_tsn.bin",
+                              this.state.simResult.output.concentration_tsn.buffer);
+                  folder.file("cH_tn.bin",
+                              this.state.simResult.output.cH_tn.buffer);
+                  folder.file("time_t.bin",
+                              this.state.simResult.output.time_t.buffer);
+                  folder.file("inputs.json", JSON.stringify(this.state.simResult.input, null, 2));
+                  zip.generateAsync({type: 'blob', compression: 'DEFLATE'}).then((blob) => {
+                    saveAs(blob, "result.zip");
+                    this.setState({downloading: false});
+                  });
+                }
+              }>
+                {this.state.downloading ?
+                 "Generating..."
+                 :
+                 "Save Result"
+                }
+              </Button>
             </Grid>
           }
         </Grid></Box>
