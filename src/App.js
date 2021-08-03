@@ -7,7 +7,6 @@ import Container from '@material-ui/core/Container';
 import Grid from '@material-ui/core/Grid';
 import IconButton from '@material-ui/core/IconButton';
 import Slider from '@material-ui/core/Slider';
-import Typography from '@material-ui/core/Typography';
 // material icons
 import AddCircleRoundedIcon from '@material-ui/icons/AddCircleRounded';
 import AssessmentIcon from '@material-ui/icons/Assessment';
