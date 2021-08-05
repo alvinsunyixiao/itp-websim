@@ -1,24 +1,8 @@
 import base64
 import json
+import os
 
 import numpy as np
-
-# array type mapping from javascript to numpy
-TYPE_MAP = {
-    'Int8Array':            np.int8,
-    'Uint8Array':           np.uint8,
-    'Uint8ClampedArray':    np.uint8,
-    'Int16Array':           np.int16,
-    'Uint16Array':          np.uint16,
-    'Int32Array':           np.int32,
-    'Uint32Array':          np.uint32,
-    'Float32Array':         np.float32,
-    'Float64Array':         np.float64,
-}
-
-def parse_ndarray(ndarray):
-    byte_buffer = base64.b64decode(ndarray['data'])
-    return np.frombuffer(byte_buffer, dtype=TYPE_MAP[ndarray['type']]).reshape(ndarray['shape'])
 
 class SimResult:
     """ class abstraction of simulation results """
@@ -46,16 +30,36 @@ class SimResult:
         self.time_t = time_t
 
     @staticmethod
-    def from_file(result_file):
-        with open(result_file, 'r') as f:
-            result = json.load(f)
-        inp = result['input']
-        oup = result['output']
+    def from_directory(directory):
+        """
+        Args:
+            directory: directory that stores the uncompressed result files
+
+        Returns:
+            a parsed SimResult object containing all the simulation result data as well
+            as experimental setup
+        """
+        input_file = os.path.join(directory, "inputs.json")
+        concentration_tsn_file = os.path.join(directory, "concentration_tsn.bin")
+        cH_tn_file = os.path.join(directory, "cH_tn.bin")
+        time_t_file = os.path.join(directory, "time_t.bin")
+
+        with open(input_file, 'r') as f:
+            inputs = json.load(f)
+
+        num_grids = inputs["numGrids"]
+        num_species = len(inputs["species"])
+
+        concentration_tsn = np.fromfile(
+            concentration_tsn_file, dtype=np.float32).reshape(-1, num_species, num_grids)
+        cH_tn = np.fromfile(cH_tn_file, dtype=np.float32).reshape(-1, num_grids)
+        time_t = np.fromfile(time_t_file, dtype=np.float32)
+
         return SimResult(
-            inputs=inp,
-            grid_n=np.linspace(0, inp['domainLen'], inp['numGrids'], endpoint=False),
-            concentration_tsn=parse_ndarray(oup['concentration_tsn']),
-            cH_tn=parse_ndarray(oup['cH_tn']),
-            time_t=parse_ndarray(oup['time_t'])
+            inputs=inputs,
+            grid_n=np.linspace(0, inputs['domainLen'], inputs['numGrids'], endpoint=False),
+            concentration_tsn=concentration_tsn,
+            cH_tn=cH_tn,
+            time_t=time_t
         )
 
