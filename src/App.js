@@ -435,7 +435,7 @@ class SimUI extends React.Component {
             textAlign="center"
             borderRadius={16}
           >
-            <h1>Stanford Isotachophoresis Simulation</h1>
+            <h1>Stanford Web-based Isotachophoresis Fast Tool</h1>
           </Box>
         </Grid>
         <Box mb={2} key="basic"><Grid container>
@@ -460,7 +460,7 @@ class SimUI extends React.Component {
                 cache
                 valid={ this.state.animateRateValid || false }
                 invalidText="Must be a positive integer"
-                label="Animation Rate"
+                label="Steps per plot update"
                 name="animateRate"
                 update={(name, value) => inputUpdate(name, value,
                   Number.isInteger(parseFloat(value)) && parseInt(value) > 0)}
