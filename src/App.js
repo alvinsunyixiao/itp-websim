@@ -531,7 +531,7 @@ class SimUI extends React.Component {
         </Grid></Box>
         <Box mb={2} key="numerics"><Grid container alignItems="center">
           <Grid item container sm={6} alignItems="center" spacing={1}>
-            <Grid item sm={2} key="title"><h4>Experiment</h4></Grid>
+            <Grid item sm={4} key="title"><h4>Experimental parameters</h4></Grid>
             <Grid item sm={4} key="domainLen">
               <InputNumber
                 cache
@@ -546,7 +546,7 @@ class SimUI extends React.Component {
                 Domain length in [mm].
               </InputNumber>
             </Grid>
-            <Grid item sm={3} key="current">
+            <Grid item sm={2} key="current">
               <InputNumber
                 cache
                 valid={ this.state.currentValid || false }
@@ -559,12 +559,12 @@ class SimUI extends React.Component {
                 Electrical current in [&mu;A] with positive direction pointing right.
               </InputNumber>
             </Grid>
-            <Grid item sm={3} key="area">
+            <Grid item sm={2} key="area">
               <InputNumber
                 cache
                 valid={ this.state.areaValid || false }
                 invalidText="Must be positive"
-                label="Area [&mu;m^2]"
+                label={ <span>Area  [&mu;m<sup>2</sup>]</span> }
                 name="area"
                 update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
                 value={ this.state.area }
@@ -613,7 +613,7 @@ class SimUI extends React.Component {
               </Grid>
               <Grid item sm={5} key="injectionType">
                 <InputSelect
-                  label="type"
+                  label="Type"
                   name={ "injectionType" + specie.name }
                   options={ SPECIE_TYPE }
                   value={ specie.injectionType }
