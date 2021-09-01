@@ -725,7 +725,7 @@ class SimUI extends React.Component {
               </Grid>
               <Grid item sm={4} key="pKa">
                 <InputText
-                  label={ <i>pKa</i> }
+                  label="pKa"
                   valid= { specie.propertyValid || false }
                   name={ "pKa" + specie.name }
                   value={ specie.pKa }
