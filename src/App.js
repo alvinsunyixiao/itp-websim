@@ -435,7 +435,7 @@ class SimUI extends React.Component {
             textAlign="center"
             borderRadius={16}
           >
-            <h1>Stanford Isotachophoresis Simulation</h1>
+            <h1>Stanford Web-based Isotachophoresis Fast Tool</h1>
           </Box>
         </Grid>
         <Box mb={2} key="basic"><Grid container>
@@ -460,7 +460,7 @@ class SimUI extends React.Component {
                 cache
                 valid={ this.state.animateRateValid || false }
                 invalidText="Must be a positive integer"
-                label="Animation Rate"
+                label="Steps per plot update"
                 name="animateRate"
                 update={(name, value) => inputUpdate(name, value,
                   Number.isInteger(parseFloat(value)) && parseInt(value) > 0)}
@@ -531,7 +531,7 @@ class SimUI extends React.Component {
         </Grid></Box>
         <Box mb={2} key="numerics"><Grid container alignItems="center">
           <Grid item container sm={6} alignItems="center" spacing={1}>
-            <Grid item sm={2} key="title"><h4>Experiment</h4></Grid>
+            <Grid item sm={4} key="title"><h4>Experimental parameters</h4></Grid>
             <Grid item sm={4} key="domainLen">
               <InputNumber
                 cache
@@ -546,7 +546,7 @@ class SimUI extends React.Component {
                 Domain length in [mm].
               </InputNumber>
             </Grid>
-            <Grid item sm={3} key="current">
+            <Grid item sm={2} key="current">
               <InputNumber
                 cache
                 valid={ this.state.currentValid || false }
@@ -559,12 +559,12 @@ class SimUI extends React.Component {
                 Electrical current in [&mu;A] with positive direction pointing right.
               </InputNumber>
             </Grid>
-            <Grid item sm={3} key="area">
+            <Grid item sm={2} key="area">
               <InputNumber
                 cache
                 valid={ this.state.areaValid || false }
                 invalidText="Must be positive"
-                label="Area [&mu;m^2]"
+                label={<>Area &#91;&mu;m<sup>2</sup>&#93;</>}
                 name="area"
                 update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
                 value={ this.state.area }
@@ -613,7 +613,7 @@ class SimUI extends React.Component {
               </Grid>
               <Grid item sm={5} key="injectionType">
                 <InputSelect
-                  label="type"
+                  label="Type"
                   name={ "injectionType" + specie.name }
                   options={ SPECIE_TYPE }
                   value={ specie.injectionType }
@@ -725,7 +725,7 @@ class SimUI extends React.Component {
               </Grid>
               <Grid item sm={4} key="pKa">
                 <InputText
-                  label={ <i>pKa</i> }
+                  label="pKa"
                   valid= { specie.propertyValid || false }
                   name={ "pKa" + specie.name }
                   value={ specie.pKa }
