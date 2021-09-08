@@ -102,7 +102,7 @@ const DEFAULT_SPECIES = [
 const SPECIE_TYPE = [
   { label: 'Left Plateau', value: 'TE' },
   { label: 'Right Plateau', value: 'LE' },
-  { label: 'Peak / Plateau', value: 'Analyte' },
+  { label: 'Peak', value: 'Analyte' },
   { label: 'Uniform', value: 'Background' },
 ];
 
