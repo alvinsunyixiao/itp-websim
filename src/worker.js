@@ -1,6 +1,6 @@
 import {Spresso} from './Spresso';
 import * as tf from '@tensorflow/tfjs';
-import {setWasmPath} from '@tensorflow/tfjs-backend-wasm';
+import {setWasmPaths} from '@tensorflow/tfjs-backend-wasm';
 
 let spresso = undefined;
 let running = false;
@@ -11,7 +11,7 @@ let spresso_ph = undefined;
 
 const initBackend = async () => {
   tf.enableProdMode();
-  setWasmPath('/tfjs-wasm/tfjs-backend-wasm.wasm');
+  setWasmPaths('/tfjs-wasm/');
   await tf.setBackend('wasm');
   spresso_sim = await tf.loadGraphModel('/spresso-sim/model.json');
   spresso_ph = await tf.loadGraphModel('/spresso-ph/model.json');
