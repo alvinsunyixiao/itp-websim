@@ -435,7 +435,7 @@ class SimUI extends React.Component {
             textAlign="center"
             borderRadius={16}
           >
-            <h1>Stanford Web-based Isotachophoresis Fast Tool</h1>
+            <h1>Stanford Web-based Isotachophoresis Fast Tool (SWIFT)</h1>
           </Box>
         </Grid>
         <Box mb={2} key="basic"><Grid container>
@@ -446,7 +446,7 @@ class SimUI extends React.Component {
                 cache
                 valid={ this.state.simTimeValid || false }
                 invalidText="Must be positive"
-                label="Simulation Time [s]"
+                label="Simulation Time [s]."
                 name="simTime"
                 value={ this.state.simTime }
                 defaultValue={ DEFAULT_INPUT.simTime }
@@ -470,7 +470,8 @@ class SimUI extends React.Component {
                 Update the animated graph once every this many steps of simulation.
                 Lower this value to obtain smoother animation.<br/>
                 <strong style={{color: 'yellow'}}>Warning</strong>:
-                  extremely small animation rate can potentially slow down the simulation.
+                  smaller value can produce smoother animation but at a potential cost of
+                  slower simulation speed.
               </InputNumber>
             </Grid>
           </Grid>
@@ -506,9 +507,9 @@ class SimUI extends React.Component {
                 to speed up simulation while raise this to obtain more accurate results.<br/>
                 <strong style={{color: 'cyan'}}>Note</strong>:
                   Try not to set this below 1e-4, otherwise the integration
-                  might fail due to floating point precision issues. Also,
+                  may fail due to floating point precision issues. Also,
                   don't worry about having a tolerance as high as 1e-2
-                  because the error estimate is the norm of the entire unnormalized
+                  since the error estimate is the norm of the entire unnormalized
                   concentration error matrix.
               </InputNumber>
             </Grid>
@@ -605,7 +606,7 @@ class SimUI extends React.Component {
                   invalidText="Must not be empty"
                   name={ "Specie" + specieIdx }
                   value={ specie.name }
-                  defaultValue={ "Specie " + specieIdx }
+                  defaultValue={ "Species " + specieIdx }
                   update={(name, value) => setSpecieSpec("name", value, !(!value))}
                 >
                   Species Name.
@@ -620,7 +621,7 @@ class SimUI extends React.Component {
                   defaultValue="Analyte"
                   update={(name, value) => setSpecieSpec("injectionType", value)}
                 >
-                  Injection Type
+                  Injection Type.
                 </InputSelect>
               </Grid>
             </Grid>
@@ -703,7 +704,7 @@ class SimUI extends React.Component {
                   <strong style={{color: 'cyan'}}>Format</strong>:
                     a comma seperated list of integers (e.g. 2, 1, -1). <br/>
                   <strong style={{color: 'yellow'}}>Warning</strong>:
-                    Valences should NOT discontinue, i.e. a specie with a -2 valence must
+                    Valences should NOT discontinue, i.e. a species with a -2 valence must
                     also has a -1 valence.
                 </InputText>
               </Grid>
@@ -720,7 +721,7 @@ class SimUI extends React.Component {
                   [10<sup>-9</sup>m<sup>2</sup>/(V&middot;s)].<br/>
                   <strong style={{color: 'cyan'}}>Format</strong>:
                     a comma seperated list of positive numbers (must have the
-                    same number of entries as the number of valences.
+                    same number of entries as the number of valences).
                 </InputText>
               </Grid>
               <Grid item sm={4} key="pKa">
@@ -735,7 +736,7 @@ class SimUI extends React.Component {
                   Negative log dissociation constant at each valence. <br/>
                   <strong style={{color: 'cyan'}}>Format</strong>:
                     a comma seperated list of numbers (must have the
-                    same number of entries as the number of valences.
+                    same number of entries as the number of valences).
                 </InputText>
               </Grid>
             </Grid>
@@ -758,7 +759,7 @@ class SimUI extends React.Component {
                 <span>
                   <strong style={{color: 'yellow'}}>Warning: </strong>
                   A large portion of the entries in this data base are based on the
-                  work of Hirokawa et al., J. Chromatogr. 252 (1982) 49.
+                  work of Hirokawa et al., <i>J. Chromatogr</i>. 252 (1982) 49.
                   We cannot guarantee all of the data is correct.
                 </span>
               }>
@@ -766,6 +767,11 @@ class SimUI extends React.Component {
               </LargeTooltip>
             }
             style={ { width: '90%' } }
+            localization={{
+              header: {
+                actions: "Add",
+              }
+            }}
             options={ { maxBodyHeight: 300, padding: 'dense' } }
             actions={[{ icon: 'add', tooltip: 'Add to simulation', onClick: (_, rowData) => {
               this.setState({species: [...this.state.species, rowData]});
@@ -774,9 +780,11 @@ class SimUI extends React.Component {
               { title: 'Name', field: 'name',
                 tooltip: 'Species Name' },
               { title: 'Valence', field: 'valence',
-                tooltip: 'Valence eletrical charges', searchable: false },
+                tooltip: 'Valence eletrical charges',
+                searchable: false },
               { title: 'Mobility', field: 'mobility',
-                tooltip: 'Mobility at each valence in [1e-9 m^2/(V s)]', searchable: false },
+                tooltip: 'Mobility at each valence in [1e-9 m\u00b2/(V\u00b7s)]',
+                searchable: false },
               { title: 'pKa', field: 'pKa',
                 tooltip: 'Negative log dissociation constant at each valence', searchable: false },
             ]}
