@@ -471,7 +471,7 @@ class SimUI extends React.Component {
                 Lower this value to obtain smoother animation.<br/>
                 <strong style={{color: 'yellow'}}>Warning</strong>:
                   smaller value can produce smoother animation but at a potential cost of
-                  slowing down the simulation.
+                  slower simulation speed.
               </InputNumber>
             </Grid>
           </Grid>
