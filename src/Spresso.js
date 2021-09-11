@@ -116,19 +116,19 @@ export class Spresso {
       const { interfaceWidth } = input;
       const { injectionLoc, injectionWidth, injectionAmount, initConcentration } = specie;
       switch (specie.injectionType) {
-        case 'TE':
+        case 'Right Plateau':
           return tf.tidy(() => {
             const erf_te = tf.tensor1d(chain(grid_n_arr)
               .add(-injectionLoc).divide(.5*interfaceWidth).erf().done().toArray());
             return erf_te.neg().add(1).mul(initConcentration/2);
           });
-        case 'LE':
+        case 'Left Plateau':
           return tf.tidy(() => {
             const erf_le = tf.tensor1d(chain(grid_n_arr)
               .add(-injectionLoc).divide(.5*interfaceWidth).erf().done().toArray());
             return erf_le.add(1).mul(initConcentration/2);
           });
-        case 'Analyte':
+        case 'Peak':
           return tf.tidy(() => {
             const erf_l = tf.tensor1d(chain(grid_n_arr)
               .add(-injectionLoc+injectionWidth/2)
@@ -143,7 +143,7 @@ export class Spresso {
                                 .div(tf.sum(c_raw));
             return c_raw.mul(c0_over_2);
           });
-        case 'Background':
+        case 'Uniform':
           return tf.tidy(() => tf.onesLike(this.grid_n).mul(initConcentration));
         default:
           console.log('Unsupported specie type ' + specie.type);
