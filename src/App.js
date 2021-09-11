@@ -32,7 +32,7 @@ import { range } from 'mathjs';
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect, LargeTooltip } from './Input';
 
-const VERSION = 'spresso_v1.2';
+const VERSION = 'spresso_v1.3';
 
 const Plot = createPlotlyComponent(Plotly);
 
@@ -53,7 +53,7 @@ const DEFAULT_INPUT = {
 const DEFAULT_SPECIES = [
   {
     name:               'HCl',
-    injectionType:      'LE',
+    injectionType:      'Left Plateau',
     injectionLoc:       '12',
     initConcentration:  '100',
     valence:            '-1',
@@ -62,7 +62,7 @@ const DEFAULT_SPECIES = [
   },
   {
     name:               'Hepes',
-    injectionType:      'TE',
+    injectionType:      'Right Plateau',
     injectionLoc:       '12',
     initConcentration:  '100',
     valence:            '-1',
@@ -71,7 +71,7 @@ const DEFAULT_SPECIES = [
   },
   {
     name:               'Acetic Acid',
-    injectionType:      'Analyte',
+    injectionType:      'Peak',
     injectionLoc:       '12',
     injectionWidth:     '2',
     injectionAmount:    '140',
@@ -81,7 +81,7 @@ const DEFAULT_SPECIES = [
   },
   {
     name:               'Acid 2',
-    injectionType:      'Analyte',
+    injectionType:      'Peak',
     injectionLoc:       '12',
     injectionWidth:     '2',
     injectionAmount:    '120',
@@ -91,7 +91,7 @@ const DEFAULT_SPECIES = [
   },
   {
     name:               'Tris',
-    injectionType:      'Background',
+    injectionType:      'Uniform',
     initConcentration:  '200',
     valence:            '1',
     mobility:           '29',
@@ -100,10 +100,10 @@ const DEFAULT_SPECIES = [
 ];
 
 const SPECIE_TYPE = [
-  { label: 'Left Plateau', value: 'TE' },
-  { label: 'Right Plateau', value: 'LE' },
-  { label: 'Peak', value: 'Analyte' },
-  { label: 'Uniform', value: 'Background' },
+  { label: 'Left Plateau', value: 'Right Plateau' },
+  { label: 'Right Plateau', value: 'Left Plateau' },
+  { label: 'Peak', value: 'Peak' },
+  { label: 'Uniform', value: 'Uniform' },
 ];
 
 const ValueLabelTooltip = (props) => {
@@ -305,10 +305,10 @@ class SimUI extends React.Component {
       const injectionLocValid = (injectionLoc > 0 && injectionLoc < domainLen);
       const injectionWidthValid = (injectionWidth > 0);
       switch (specie.injectionType) {
-        case 'Analyte':
+        case 'Peak':
           return injectionLocValid && injectionWidthValid;
-        case 'LE':
-        case 'TE':
+        case 'Left Plateau':
+        case 'Right Plateau':
           return injectionLocValid;
         default:
           return true;
@@ -321,11 +321,11 @@ class SimUI extends React.Component {
       const loc = parseFloat(specie.injectionLoc);
       const width = parseFloat(specie.injectionWidth);
       switch (specie.injectionType) {
-        case 'TE':
+        case 'Right Plateau':
           return {left: 0., right: loc};
-        case 'LE':
+        case 'Left Plateau':
           return {left: loc, right: domainLen};
-        case 'Analyte':
+        case 'Peak':
           return {left: loc - width/2, right: loc + width/2};
         default:
           return {left: 0., right: 0.};
@@ -618,7 +618,7 @@ class SimUI extends React.Component {
                   name={ "injectionType" + specie.name }
                   options={ SPECIE_TYPE }
                   value={ specie.injectionType }
-                  defaultValue="Analyte"
+                  defaultValue="Peak"
                   update={(name, value) => setSpecieSpec("injectionType", value)}
                 >
                   Injection Type.
@@ -626,7 +626,7 @@ class SimUI extends React.Component {
               </Grid>
             </Grid>
             <Grid container item sm={3} spacing={1}>
-              {specie.injectionType === 'Analyte' &&
+              {specie.injectionType === 'Peak' &&
               <Grid item sm={4} key="injectionAmount">
                 <InputNumber
                   label={ <i>N</i> }
@@ -641,7 +641,7 @@ class SimUI extends React.Component {
                 </InputNumber>
               </Grid>
               }
-              {specie.injectionType !== 'Analyte' &&
+              {specie.injectionType !== 'Peak' &&
               <Grid item sm={4} key="initConcentration">
                 <InputNumber
                   label={ <i><span>c<sub>0</sub></span></i> }
@@ -656,7 +656,7 @@ class SimUI extends React.Component {
                 </InputNumber>
               </Grid>
               }
-              {specie.injectionType !== 'Background' &&
+              {specie.injectionType !== 'Uniform' &&
               <Grid item sm={4} key="injectionLoc">
                 <InputNumber
                   label={ <i><span>x<sub>inj</sub></span></i> }
@@ -672,7 +672,7 @@ class SimUI extends React.Component {
                 </InputNumber>
               </Grid>
               }
-              {specie.injectionType === 'Analyte' &&
+              {specie.injectionType === 'Peak' &&
               <Grid item sm={4} key="injectionWidth">
                 <InputNumber
                   label={ <i>w</i> }
