@@ -22,5 +22,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# analysis
+*.mat
+*.m
+/result
+
 # Python
 __pycache__
+.vscode
