@@ -32,7 +32,7 @@ import { range } from 'mathjs';
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect, LargeTooltip } from './Input';
 
-const VERSION = 'spresso_v1.2';
+const VERSION = 'spresso_v1.3';
 
 const Plot = createPlotlyComponent(Plotly);
 
@@ -53,7 +53,7 @@ const DEFAULT_INPUT = {
 const DEFAULT_SPECIES = [
   {
     name:               'HCl',
-    injectionType:      'LE',
+    injectionType:      'Left Plateau',
     injectionLoc:       '12',
     initConcentration:  '100',
     valence:            '-1',
@@ -62,7 +62,7 @@ const DEFAULT_SPECIES = [
   },
   {
     name:               'Hepes',
-    injectionType:      'TE',
+    injectionType:      'Right Plateau',
     injectionLoc:       '12',
     initConcentration:  '100',
     valence:            '-1',
@@ -71,7 +71,7 @@ const DEFAULT_SPECIES = [
   },
   {
     name:               'Acetic Acid',
-    injectionType:      'Analyte',
+    injectionType:      'Peak',
     injectionLoc:       '12',
     injectionWidth:     '2',
     injectionAmount:    '140',
@@ -81,7 +81,7 @@ const DEFAULT_SPECIES = [
   },
   {
     name:               'Acid 2',
-    injectionType:      'Analyte',
+    injectionType:      'Peak',
     injectionLoc:       '12',
     injectionWidth:     '2',
     injectionAmount:    '120',
@@ -91,7 +91,7 @@ const DEFAULT_SPECIES = [
   },
   {
     name:               'Tris',
-    injectionType:      'Background',
+    injectionType:      'Uniform',
     initConcentration:  '200',
     valence:            '1',
     mobility:           '29',
@@ -100,10 +100,10 @@ const DEFAULT_SPECIES = [
 ];
 
 const SPECIE_TYPE = [
-  { label: 'Left Plateau', value: 'TE' },
-  { label: 'Right Plateau', value: 'LE' },
-  { label: 'Peak / Plateau', value: 'Analyte' },
-  { label: 'Uniform', value: 'Background' },
+  { label: 'Left Plateau', value: 'Right Plateau' },
+  { label: 'Right Plateau', value: 'Left Plateau' },
+  { label: 'Peak', value: 'Peak' },
+  { label: 'Uniform', value: 'Uniform' },
 ];
 
 const ValueLabelTooltip = (props) => {
@@ -305,10 +305,10 @@ class SimUI extends React.Component {
       const injectionLocValid = (injectionLoc > 0 && injectionLoc < domainLen);
       const injectionWidthValid = (injectionWidth > 0);
       switch (specie.injectionType) {
-        case 'Analyte':
+        case 'Peak':
           return injectionLocValid && injectionWidthValid;
-        case 'LE':
-        case 'TE':
+        case 'Left Plateau':
+        case 'Right Plateau':
           return injectionLocValid;
         default:
           return true;
@@ -321,11 +321,11 @@ class SimUI extends React.Component {
       const loc = parseFloat(specie.injectionLoc);
       const width = parseFloat(specie.injectionWidth);
       switch (specie.injectionType) {
-        case 'TE':
+        case 'Right Plateau':
           return {left: 0., right: loc};
-        case 'LE':
+        case 'Left Plateau':
           return {left: loc, right: domainLen};
-        case 'Analyte':
+        case 'Peak':
           return {left: loc - width/2, right: loc + width/2};
         default:
           return {left: 0., right: 0.};
@@ -435,7 +435,7 @@ class SimUI extends React.Component {
             textAlign="center"
             borderRadius={16}
           >
-            <h1>Stanford Web-based Isotachophoresis Fast Tool</h1>
+            <h1>Stanford Web-based Isotachophoresis Fast Tool (SWIFT)</h1>
           </Box>
         </Grid>
         <Box mb={2} key="basic"><Grid container>
@@ -446,7 +446,7 @@ class SimUI extends React.Component {
                 cache
                 valid={ this.state.simTimeValid || false }
                 invalidText="Must be positive"
-                label="Simulation Time [s]"
+                label="Simulation Time [s]."
                 name="simTime"
                 value={ this.state.simTime }
                 defaultValue={ DEFAULT_INPUT.simTime }
@@ -470,7 +470,8 @@ class SimUI extends React.Component {
                 Update the animated graph once every this many steps of simulation.
                 Lower this value to obtain smoother animation.<br/>
                 <strong style={{color: 'yellow'}}>Warning</strong>:
-                  extremely small animation rate can potentially slow down the simulation.
+                  smaller value can produce smoother animation but at a potential cost of
+                  slower simulation speed.
               </InputNumber>
             </Grid>
           </Grid>
@@ -506,9 +507,9 @@ class SimUI extends React.Component {
                 to speed up simulation while raise this to obtain more accurate results.<br/>
                 <strong style={{color: 'cyan'}}>Note</strong>:
                   Try not to set this below 1e-4, otherwise the integration
-                  might fail due to floating point precision issues. Also,
+                  may fail due to floating point precision issues. Also,
                   don't worry about having a tolerance as high as 1e-2
-                  because the error estimate is the norm of the entire unnormalized
+                  since the error estimate is the norm of the entire unnormalized
                   concentration error matrix.
               </InputNumber>
             </Grid>
@@ -564,7 +565,11 @@ class SimUI extends React.Component {
                 cache
                 valid={ this.state.areaValid || false }
                 invalidText="Must be positive"
+<<<<<<< HEAD
                 label={ <span>Area  [&mu;m<sup>2</sup>]</span> }
+=======
+                label={<>Area &#91;&mu;m<sup>2</sup>&#93;</>}
+>>>>>>> 67a2c7dced5a5ea9180b543a6064dac078b610cc
                 name="area"
                 update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
                 value={ this.state.area }
@@ -605,7 +610,7 @@ class SimUI extends React.Component {
                   invalidText="Must not be empty"
                   name={ "Specie" + specieIdx }
                   value={ specie.name }
-                  defaultValue={ "Specie " + specieIdx }
+                  defaultValue={ "Species " + specieIdx }
                   update={(name, value) => setSpecieSpec("name", value, !(!value))}
                 >
                   Species Name.
@@ -617,15 +622,15 @@ class SimUI extends React.Component {
                   name={ "injectionType" + specie.name }
                   options={ SPECIE_TYPE }
                   value={ specie.injectionType }
-                  defaultValue="Analyte"
+                  defaultValue="Peak"
                   update={(name, value) => setSpecieSpec("injectionType", value)}
                 >
-                  Injection Type
+                  Injection Type.
                 </InputSelect>
               </Grid>
             </Grid>
             <Grid container item sm={3} spacing={1}>
-              {specie.injectionType === 'Analyte' &&
+              {specie.injectionType === 'Peak' &&
               <Grid item sm={4} key="injectionAmount">
                 <InputNumber
                   label={ <i>N</i> }
@@ -640,7 +645,7 @@ class SimUI extends React.Component {
                 </InputNumber>
               </Grid>
               }
-              {specie.injectionType !== 'Analyte' &&
+              {specie.injectionType !== 'Peak' &&
               <Grid item sm={4} key="initConcentration">
                 <InputNumber
                   label={ <i><span>c<sub>0</sub></span></i> }
@@ -655,7 +660,7 @@ class SimUI extends React.Component {
                 </InputNumber>
               </Grid>
               }
-              {specie.injectionType !== 'Background' &&
+              {specie.injectionType !== 'Uniform' &&
               <Grid item sm={4} key="injectionLoc">
                 <InputNumber
                   label={ <i><span>x<sub>inj</sub></span></i> }
@@ -671,7 +676,7 @@ class SimUI extends React.Component {
                 </InputNumber>
               </Grid>
               }
-              {specie.injectionType === 'Analyte' &&
+              {specie.injectionType === 'Peak' &&
               <Grid item sm={4} key="injectionWidth">
                 <InputNumber
                   label={ <i>w</i> }
@@ -703,7 +708,7 @@ class SimUI extends React.Component {
                   <strong style={{color: 'cyan'}}>Format</strong>:
                     a comma seperated list of integers (e.g. 2, 1, -1). <br/>
                   <strong style={{color: 'yellow'}}>Warning</strong>:
-                    Valences should NOT discontinue, i.e. a specie with a -2 valence must
+                    Valences should NOT discontinue, i.e. a species with a -2 valence must
                     also has a -1 valence.
                 </InputText>
               </Grid>
@@ -720,7 +725,7 @@ class SimUI extends React.Component {
                   [10<sup>-9</sup>m<sup>2</sup>/(V&middot;s)].<br/>
                   <strong style={{color: 'cyan'}}>Format</strong>:
                     a comma seperated list of positive numbers (must have the
-                    same number of entries as the number of valences.
+                    same number of entries as the number of valences).
                 </InputText>
               </Grid>
               <Grid item sm={4} key="pKa">
@@ -735,7 +740,7 @@ class SimUI extends React.Component {
                   Negative log dissociation constant at each valence. <br/>
                   <strong style={{color: 'cyan'}}>Format</strong>:
                     a comma seperated list of numbers (must have the
-                    same number of entries as the number of valences.
+                    same number of entries as the number of valences).
                 </InputText>
               </Grid>
             </Grid>
@@ -758,7 +763,7 @@ class SimUI extends React.Component {
                 <span>
                   <strong style={{color: 'yellow'}}>Warning: </strong>
                   A large portion of the entries in this data base are based on the
-                  work of Hirokawa et al., J. Chromatogr. 252 (1982) 49.
+                  work of Hirokawa et al., <i>J. Chromatogr</i>. 252 (1982) 49.
                   We cannot guarantee all of the data is correct.
                 </span>
               }>
@@ -766,6 +771,11 @@ class SimUI extends React.Component {
               </LargeTooltip>
             }
             style={ { width: '90%' } }
+            localization={{
+              header: {
+                actions: "Add",
+              }
+            }}
             options={ { maxBodyHeight: 300, padding: 'dense' } }
             actions={[{ icon: 'add', tooltip: 'Add to simulation', onClick: (_, rowData) => {
               this.setState({species: [...this.state.species, rowData]});
@@ -774,9 +784,11 @@ class SimUI extends React.Component {
               { title: 'Name', field: 'name',
                 tooltip: 'Species Name' },
               { title: 'Valence', field: 'valence',
-                tooltip: 'Valence eletrical charges', searchable: false },
+                tooltip: 'Valence eletrical charges',
+                searchable: false },
               { title: 'Mobility', field: 'mobility',
-                tooltip: 'Mobility at each valence in [1e-9 m^2/(V s)]', searchable: false },
+                tooltip: 'Mobility at each valence in [1e-9 m\u00b2/(V\u00b7s)]',
+                searchable: false },
               { title: 'pKa', field: 'pKa',
                 tooltip: 'Negative log dissociation constant at each valence', searchable: false },
             ]}
