@@ -49,6 +49,5 @@
     "jest-canvas-mock": "^2.2.0",
     "react-app-rewired": "^2.1.6",
     "worker-plugin": "^5.0.0"
-  },
-  "homepage": "./"
+  }
 }
