@@ -32,7 +32,7 @@ import { range } from 'mathjs';
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect, LargeTooltip } from './Input';
 
-const VERSION = 'spresso_v1.3';
+const VERSION = 'spresso_v1.4';
 
 const Plot = createPlotlyComponent(Plotly);
 
@@ -435,7 +435,7 @@ class SimUI extends React.Component {
             textAlign="center"
             borderRadius={16}
           >
-            <h1>Stanford Web-based Isotachophoresis Fast Tool (SWIFT)</h1>
+            <h1>Client-based Application for Fast Electrophoresis Simulation (CAFES)</h1>
           </Box>
         </Grid>
         <Box mb={2} key="basic"><Grid container>
@@ -565,11 +565,7 @@ class SimUI extends React.Component {
                 cache
                 valid={ this.state.areaValid || false }
                 invalidText="Must be positive"
-<<<<<<< HEAD
-                label={ <span>Area  [&mu;m<sup>2</sup>]</span> }
-=======
                 label={<>Area &#91;&mu;m<sup>2</sup>&#93;</>}
->>>>>>> 67a2c7dced5a5ea9180b543a6064dac078b610cc
                 name="area"
                 update={(name, value) => inputUpdate(name, value, parseFloat(value) > 0)}
                 value={ this.state.area }
