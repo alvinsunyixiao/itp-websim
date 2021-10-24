@@ -116,13 +116,13 @@ export class Spresso {
       const { interfaceWidth } = input;
       const { injectionLoc, injectionWidth, injectionAmount, initConcentration } = specie;
       switch (specie.injectionType) {
-        case 'Right Plateau':
+        case 'Left Plateau':
           return tf.tidy(() => {
             const erf_te = tf.tensor1d(chain(grid_n_arr)
               .add(-injectionLoc).divide(.5*interfaceWidth).erf().done().toArray());
             return erf_te.neg().add(1).mul(initConcentration/2);
           });
-        case 'Left Plateau':
+        case 'Right Plateau':
           return tf.tidy(() => {
             const erf_le = tf.tensor1d(chain(grid_n_arr)
               .add(-injectionLoc).divide(.5*interfaceWidth).erf().done().toArray());
