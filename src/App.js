@@ -53,7 +53,7 @@ const DEFAULT_INPUT = {
 const DEFAULT_SPECIES = [
   {
     name:               'HCl',
-    injectionType:      'Left Plateau',
+    injectionType:      'Right Plateau',
     injectionLoc:       '12',
     initConcentration:  '100',
     valence:            '-1',
@@ -62,7 +62,7 @@ const DEFAULT_SPECIES = [
   },
   {
     name:               'Hepes',
-    injectionType:      'Right Plateau',
+    injectionType:      'Left Plateau',
     injectionLoc:       '12',
     initConcentration:  '100',
     valence:            '-1',
@@ -100,8 +100,8 @@ const DEFAULT_SPECIES = [
 ];
 
 const SPECIE_TYPE = [
-  { label: 'Left Plateau', value: 'Right Plateau' },
-  { label: 'Right Plateau', value: 'Left Plateau' },
+  { label: 'Left Plateau', value: 'Left Plateau' },
+  { label: 'Right Plateau', value: 'Right Plateau' },
   { label: 'Peak', value: 'Peak' },
   { label: 'Uniform', value: 'Uniform' },
 ];
@@ -307,8 +307,8 @@ class SimUI extends React.Component {
       switch (specie.injectionType) {
         case 'Peak':
           return injectionLocValid && injectionWidthValid;
-        case 'Left Plateau':
         case 'Right Plateau':
+        case 'Left Plateau':
           return injectionLocValid;
         default:
           return true;
@@ -321,9 +321,9 @@ class SimUI extends React.Component {
       const loc = parseFloat(specie.injectionLoc);
       const width = parseFloat(specie.injectionWidth);
       switch (specie.injectionType) {
-        case 'Right Plateau':
-          return {left: 0., right: loc};
         case 'Left Plateau':
+          return {left: 0., right: loc};
+        case 'Right Plateau':
           return {left: loc, right: domainLen};
         case 'Peak':
           return {left: loc - width/2, right: loc + width/2};
