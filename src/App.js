@@ -32,7 +32,7 @@ import { range } from 'mathjs';
 import { SpressoInput } from './Spresso';
 import { InputNumber, InputText, InputSelect, LargeTooltip } from './Input';
 
-const VERSION = 'spresso_v1.4';
+const VERSION = 'spresso_v1.5';
 
 const Plot = createPlotlyComponent(Plotly);
 
@@ -435,7 +435,7 @@ class SimUI extends React.Component {
             textAlign="center"
             borderRadius={16}
           >
-            <h1>Stanford Web-based Isotachophoresis Fast Tool (SWIFT)</h1>
+            <h1>Client-based Application for Fast Electrophoresis Simulation (CAFES)</h1>
           </Box>
         </Grid>
         <Box mb={2} key="basic"><Grid container>
