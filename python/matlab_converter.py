@@ -5,9 +5,9 @@ import argparse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Converts SWIFT results into MATLAB table.')
+        description='Converts CAFES results into MATLAB table.')
     parser.add_argument('-filename', type=str,
-                        help='Location of the SWIFT result file')
+                        help='Location of the CAFES result file')
     args = parser.parse_args()
     filename = args.filename
     filetag = input('Name of the MATLAB data file : ')
