@@ -29,10 +29,10 @@ import commonSpecies from './commonSpecies.json';
 // mathjs
 import { range } from 'mathjs';
 
-import { SpressoInput } from './Spresso';
+import { CafesInput } from './Cafes';
 import { InputNumber, InputText, InputSelect, LargeTooltip } from './Input';
 
-const VERSION = 'spresso_v1.5';
+const VERSION = 'cafes_v1.5';
 
 const Plot = createPlotlyComponent(Plotly);
 
@@ -127,6 +127,11 @@ const SimReport = ({simResult}) => {
     xaxis: { title: 'Domain [mm]' },
     yaxis: { title: 'Concentration [mM]' },
     yaxis2: { title: 'pH' },
+    yaxis3: {
+      title: 'Electric Field [V/mm]',
+      overlaying: 'y2',
+      side: 'right',
+    },
     grid: { rows: 2, columns: 1 },
     autosize: true,
   });
@@ -136,6 +141,8 @@ const SimReport = ({simResult}) => {
     const concentration_sn = simResult.output.concentration_tsn.subarray(
       frameIdx * numSpecies * numGrids, (frameIdx + 1) * numSpecies * numGrids);
     const cH_n = simResult.output.cH_tn.subarray(frameIdx * numGrids, (frameIdx + 1) * numGrids);
+    const efield_n = simResult.output.efield_tn.subarray(
+      frameIdx * numGrids, (frameIdx + 1) * numGrids);
     setSimData((sData) => simResult.input.species.map((specie, idx) => ({
       ...sData[idx],
       x: grid_n,
@@ -144,9 +151,14 @@ const SimReport = ({simResult}) => {
     })).concat([{
       ...sData[simResult.input.species.length],
       x: grid_n,
-      y: cH_n.map((val) => -Math.log10(val)),
+      y: cH_n.map((val) => -Math.log10(val)), // cH => pH
       yaxis: 'y2',
       name: 'pH',
+    }, {
+      x: grid_n,
+      y: efield_n.map((val) => val * 1e-3), // [V/m] => [V/mm]
+      name: 'Electric Field',
+      yaxis: 'y3',
     }]));
   }, [frameIdx, simResult, domainLen, numGrids, numSpecies]);
   return (
@@ -201,6 +213,11 @@ class SimUI extends React.Component {
         xaxis: { title: 'Domain [mm]' },
         yaxis: { title: 'Concentration [mM]' },
         yaxis2: { title: 'pH' },
+        yaxis3: {
+          title: 'Electric Field [V/mm]',
+          overlaying: 'y2',
+          side: 'right',
+        },
         legend: { x: 1.05, },
         grid: { rows: 2, columns: 1 },
         autosize: true,
@@ -238,6 +255,11 @@ class SimUI extends React.Component {
             y: e.data.plot.pH_n,
             name: 'pH',
             yaxis: 'y2',
+          }, {
+            x: e.data.plot.x,
+            y: e.data.plot.efield_n,
+            name: 'Electric Field',
+            yaxis: 'y3',
           }]),
           layout: {
             ...this.state.layout,
@@ -277,7 +299,7 @@ class SimUI extends React.Component {
   resetHandler() {
     this.setState({running: false, initialized: false, genReport: false, simResult: undefined});
 
-    const input = new SpressoInput(
+    const input = new CafesInput(
       this.state.simTime, this.state.animateRate,
       this.state.numGrids, this.state.tolerance, this.state.interfaceWidth,
       this.state.domainLen, this.state.current, this.state.area,
@@ -881,6 +903,8 @@ class SimUI extends React.Component {
                               this.state.simResult.output.concentration_tsn.buffer);
                   folder.file("cH_tn.bin",
                               this.state.simResult.output.cH_tn.buffer);
+                  folder.file("efield_tn.bin",
+                              this.state.simResult.output.efield_tn.buffer);
                   folder.file("time_t.bin",
                               this.state.simResult.output.time_t.buffer);
                   folder.file("inputs.json", JSON.stringify(this.state.simResult.input, null, 2));
