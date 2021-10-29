@@ -39,10 +39,10 @@ DORPRI54_TABLEAU = {
     'c4': [5179/57600, 0, 7571/16695, 393/640, -92097/339200, 187/2100, 1/40],
 }
 
-class SpressoPH(tf.Module):
-    """ Tensorflow implementation of Spresso initial pH calculation """
+class CafesInit(tf.Module):
+    """ Tensorflow implementation of Cafes initial pH calculation """
     def __init__(self):
-        super(SpressoPH, self).__init__()
+        super(CafesInit, self).__init__()
 
     def lz_func(self, cH_n, c_mat_sn, l_mat_sd, val_mat_sd):
         max_deg = tf.shape(l_mat_sd)[1]
@@ -70,29 +70,79 @@ class SpressoPH(tf.Module):
         f_p_n = rhs_den_n / cH_n + 1.0 + Kw / cH_n**2
         inc_n = f_n / f_p_n
 
-        return inc_n
+        return inc_n, cH_mat_nd, temp_mat_sn
 
-    @tf.function(input_signature=[
-        tf.TensorSpec([None, None], name='c_mat_sn'),
-        tf.TensorSpec([None, None], name='l_mat_sd'),
-        tf.TensorSpec([None, None], name='val_mat_sd'),
-    ])
-    def __call__(self, c_mat_sn, l_mat_sd, val_mat_sd):
+    def lz_calc_equilibrium(self, cH_n, c_mat_sn, l_mat_sd, val_mat_sd):
         c_mat_sn = c_mat_sn / lit2met
-        # initial guess pH == 7
-        cH_n = tf.ones(tf.shape(c_mat_sn)[1], dtype=tf.float32) * 1e-7
+
+        max_deg = tf.shape(l_mat_sd)[1]
+        num_grid = tf.shape(cH_n)[0]
+
         inc_n = tf.ones_like(cH_n)
+        tmp_nd = tf.broadcast_to(tf.expand_dims(cH_n, axis=-1), (num_grid, max_deg))
+        cH_mat_nd = tf.zeros_like(tmp_nd)
+        temp_mat_sn = tf.ones_like(c_mat_sn)
         while tf.norm(inc_n) / tf.reduce_max(cH_n) > 1e-4:
-            inc_n = self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
+            inc_n, cH_mat_nd, temp_mat_sn = self.lz_func(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
             cH_n = cH_n - inc_n
 
-        return cH_n
+        giz_cube_snd = tf.expand_dims(l_mat_sd, axis=1) * \
+                       tf.expand_dims(cH_mat_nd, axis=0) / \
+                       tf.expand_dims(temp_mat_sn, axis=2)
+
+        return cH_n, giz_cube_snd
+
+    def calc_spatial_properties(self, cH_n, c_mat_sn,
+                                l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd):
+        cH_n, giz_cube_snd = self.lz_calc_equilibrium(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
+
+        u_cube_snd = tf.expand_dims(u_mat_sd, axis=1) * giz_cube_snd
+        d_cube_snd = tf.expand_dims(d_mat_sd, axis=1) * giz_cube_snd
+
+        u_mat_sn = tf.reduce_sum(u_cube_snd, axis=2)
+        d_mat_sn = tf.reduce_sum(d_cube_snd, axis=2)
+        val_mat_s1d = tf.expand_dims(val_mat_sd, axis=1)
+        alpha_mat_sn = F * tf.reduce_sum(val_mat_s1d * u_cube_snd, axis=2)
+        beta_mat_sn = F * tf.reduce_sum(val_mat_s1d * d_cube_snd, axis=2)
+
+        sig_vec_n = tf.reduce_sum(alpha_mat_sn * c_mat_sn, axis=0) + \
+                    lit2met * F * (uH * cH_n + uOH * Kw / cH_n)
+        s_vec_n = tf.reduce_sum(beta_mat_sn * c_mat_sn, axis=0) + \
+                    lit2met * R * T * (uH * cH_n - uOH * Kw / cH_n)
+
+        return cH_n, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n
+
+    def calc_eletric_field(self, s_vec_n, sig_vec_n, current, dx):
+        s_left_vec_n = tf.concat([[2*s_vec_n[0] - s_vec_n[1]], s_vec_n[:-1]], axis=0)
+        s_right_vec_n = tf.concat([s_vec_n[1:], [2*s_vec_n[-1] - s_vec_n[-2]]], axis=0)
+        dsdx_vec_n = (s_right_vec_n - s_left_vec_n) / (2 * dx)
+
+        return (current + dsdx_vec_n) / sig_vec_n
+
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=[None, None], name='c_mat_sn'),
+        tf.TensorSpec(shape=[None, None], name='l_mat_sd'),
+        tf.TensorSpec(shape=[None, None], name='val_mat_sd'),
+        tf.TensorSpec(shape=[None, None], name='u_mat_sd'),
+        tf.TensorSpec(shape=[None, None], name='d_mat_sd'),
+        tf.TensorSpec(shape=[], name='current'),
+        tf.TensorSpec(shape=[], name='dx'),
+    ])
+    def __call__(self, c_mat_sn, l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd, current, dx):
+        # initial guess pH == 7
+        cH_n = tf.ones(tf.shape(c_mat_sn)[1], dtype=tf.float32) * 1e-7
+
+        cH_n, _, _, sig_vec_n, s_vec_n = self.calc_spatial_properties(
+            cH_n, c_mat_sn, l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd)
+        efield_vec_n = self.calc_eletric_field(s_vec_n, sig_vec_n, current, dx)
+
+        return cH_n, efield_vec_n
 
 
-class SpressoSim(tf.Module):
-    """ Tensorflow implementation of Spresso simulation step """
+class CafesSim(CafesInit):
+    """ Tensorflow implementation of Cafes simulation step """
     def __init__(self):
-        super(SpressoSim, self).__init__()
+        super(CafesSim, self).__init__()
 
     def lz_func(self, cH_n, c_mat_sn, l_mat_sd, val_mat_sd):
         max_deg = tf.shape(l_mat_sd)[1]
@@ -139,26 +189,6 @@ class SpressoSim(tf.Module):
                        tf.expand_dims(temp_mat_sn, axis=2)
 
         return cH_n, giz_cube_snd
-
-    def calc_spatial_properties(self, cH_n, c_mat_sn,
-                                l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd):
-        cH_n, giz_cube_snd = self.lz_calc_equilibrium(cH_n, c_mat_sn, l_mat_sd, val_mat_sd)
-
-        u_cube_snd = tf.expand_dims(u_mat_sd, axis=1) * giz_cube_snd
-        d_cube_snd = tf.expand_dims(d_mat_sd, axis=1) * giz_cube_snd
-
-        u_mat_sn = tf.reduce_sum(u_cube_snd, axis=2)
-        d_mat_sn = tf.reduce_sum(d_cube_snd, axis=2)
-        val_mat_s1d = tf.expand_dims(val_mat_sd, axis=1)
-        alpha_mat_sn = F * tf.reduce_sum(val_mat_s1d * u_cube_snd, axis=2)
-        beta_mat_sn = F * tf.reduce_sum(val_mat_s1d * d_cube_snd, axis=2)
-
-        sig_vec_n = tf.reduce_sum(alpha_mat_sn * c_mat_sn, axis=0) + \
-                    lit2met * F * (uH * cH_n + uOH * Kw / cH_n)
-        s_vec_n = tf.reduce_sum(beta_mat_sn * c_mat_sn, axis=0) + \
-                    lit2met * R * T * (uH * cH_n - uOH * Kw / cH_n)
-
-        return cH_n, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n
 
     def limiter_func(self, x, y):
         """ calculate limiter for SLIP scheme """
@@ -243,6 +273,7 @@ class SpressoSim(tf.Module):
         # chemical equillibrium
         cH_n, u_mat_sn, d_mat_sn, sig_vec_n, s_vec_n = self.calc_spatial_properties(
             cH_n, c_mat_sn, l_mat_sd, val_mat_sd, u_mat_sd, d_mat_sd)
+        efield_vec_n = self.calc_eletric_field(s_vec_n, sig_vec_n, current, dx)
         # perform integration
         c_mat_5_sn = tf.identity(c_mat_sn)
         error = tolerance + 1.
@@ -254,7 +285,7 @@ class SpressoSim(tf.Module):
             dt_scale = .9 * (tolerance / error)**(1/5)
             dt_scale = tf.clip_by_value(dt_scale, 0.1, 10)
 
-        return cH_n, c_mat_5_sn, dt, dt*dt_scale
+        return cH_n, efield_vec_n, c_mat_5_sn, dt, dt*dt_scale
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -274,6 +305,6 @@ if __name__ == '__main__':
     args = parse_args()
     # make sure output path exist
     Path(args.output).mkdir(parents=True, exist_ok=True)
-    save_tf_model(SpressoSim(), args.output, 'spresso-sim')
-    save_tf_model(SpressoPH(), args.output, 'spresso-ph')
+    save_tf_model(CafesSim(), args.output, 'cafes-sim')
+    save_tf_model(CafesInit(), args.output, 'cafes-init')
 

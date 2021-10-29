@@ -11,10 +11,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     filename = args.filename
     filetag = input('Name of the MATLAB data file : ')
+
+    sim_results = SimResult.from_directory(filename)
     scipy.io.savemat(filetag+".mat", {
-        'ctable': np.array(SimResult.from_directory(
-            filename).concentration_tsn),
-        'cH': np.array(SimResult.from_directory(filename).cH_tn),
-        'time': np.array(SimResult.from_directory(filename).time_t),
-        'grid': np.array(SimResult.from_directory(filename).grid_n),
+        'ctable': sim_results.concentration_tsn,
+        'cH': sim_results.cH_tn,
+        'efield': sim_results.efield_tn,
+        'time': sim_results.time_t,
+        'grid': sim_results.grid_n,
     })
