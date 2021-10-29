@@ -8,7 +8,7 @@ import { range, chain } from 'mathjs';
  * animateRate:  animation rate in [steps / animation]
  * species:       a dictionary of species properties
  **/
-export class SpressoInput {
+export class CafesInput {
   constructor(simTime, animateRate,
               numGrids, tolerance, interfaceWidth,
               domainLen, current, area, species) {
@@ -101,11 +101,11 @@ export class SpressoInput {
   }
 }
 
-export class Spresso {
-  constructor(input, model_sim, model_ph) {
+export class Cafes {
+  constructor(input, model_sim, model_init) {
     this.input = input;
     this.model_sim = model_sim;
-    this.model_ph = model_ph;
+    this.model_init = model_init;
     this.dx = input.domainLen / input.numGrids;
     this.step = 0;
     const grid_n_arr = range(0, input.domainLen, this.dx);
@@ -166,15 +166,23 @@ export class Spresso {
 
   async init() {
     // initialize pH
-    this.cH_n = await this.model_ph.executeAsync({
+    const [cH_n, efield_n] = await this.model_init.executeAsync({
       c_mat_sn: this.concentration_sn,
       l_mat_sd: this.l_mat_sd,
       val_mat_sd: this.val_mat_sd,
-    });
+      u_mat_sd: this.u_mat_sd,
+      d_mat_sd: this.d_mat_sd,
+      current: this.current,
+      dx: this.dx,
+    }, ['Identity:0', 'Identity_1:0']);
+    this.cH_n = cH_n;
     // saved temporal slices
     this.concentration_tsn = [await this.concentration_sn.data()];
-    this.cH_tn = [await this.cH_n.data()];
+    this.cH_tn = [await cH_n.data()];
+    this.efield_tn = [await efield_n.data()];
     this.time_t = [this.t];
+    // disposal
+    efield_n.dispose();
   }
 
   async simulateStep() {
@@ -182,7 +190,8 @@ export class Spresso {
       return false;
     }
 
-    const [new_cH_n, new_concentration_sn, dt, new_dt] = await this.model_sim.executeAsync({
+    const [new_cH_n, new_efield_n, new_concentration_sn, dt, new_dt] =
+        await this.model_sim.executeAsync({
       ch_n: this.cH_n,
       c_mat_sn: this.concentration_sn,
       l_mat_sd: this.l_mat_sd,
@@ -193,7 +202,7 @@ export class Spresso {
       dx: this.dx,
       dt: this.dt,
       tolerance: this.tolerance,
-    }, ['Identity:0', 'Identity_1:0', 'Identity_2:0', 'Identity_3:0']);
+    }, ['Identity:0', 'Identity_1:0', 'Identity_2:0', 'Identity_3:0', 'Identity_4:0']);
 
     // update time
     this.t += (await dt.data())[0];
@@ -210,6 +219,9 @@ export class Spresso {
     this.time_t.push(this.t);
     this.concentration_tsn.push(await this.concentration_sn.data());
     this.cH_tn.push(await this.cH_n.data());
+    this.efield_tn.push(await new_efield_n.data());
+    // dispose used data
+    new_efield_n.dispose();
 
     return true;
   }
@@ -220,6 +232,10 @@ export class Spresso {
 
   getCurrentCH() {
     return this.cH_tn[this.cH_tn.length - 1];
+  }
+
+  getCurrentEField() {
+    return this.efield_tn[this.efield_tn.length - 1];
   }
 
   getCurrentTime() {
