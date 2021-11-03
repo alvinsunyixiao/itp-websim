@@ -64,7 +64,7 @@ const DEFAULT_SPECIES = [
     name:               'Hepes',
     injectionType:      'Left Plateau',
     injectionLoc:       '12',
-    initConcentration:  '100',
+    initConcentration:  '65',
     valence:            '-1',
     mobility:           '26',
     pKa:                '7.2',
