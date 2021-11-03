@@ -32,7 +32,7 @@ import { range } from 'mathjs';
 import { CafesInput } from './Cafes';
 import { InputNumber, InputText, InputSelect, LargeTooltip } from './Input';
 
-const VERSION = 'cafes_v1.5';
+const VERSION = 'cafes_v1.6';
 
 const Plot = createPlotlyComponent(Plotly);
 
