@@ -949,6 +949,13 @@ class SimUI extends React.Component {
         }
         </Grid>
         }
+        <Box>
+        <div>Reference*:</div>
+        <div>Avaro, A.S.; Sun, Y.; Jiang, K.; Bahga, S.S.; Santiago, J.G. "Web-based open-source tool for isotachophoresis", in press, <i>Analytical Chemistry</i>, <b>2021</b>. </div>
+        <br/>
+        <div>*If you use this tool as part of any published work, please cite this paper.</div>
+        <br/>
+        </Box>
       </div>
     );
   }
