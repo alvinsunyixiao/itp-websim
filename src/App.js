@@ -950,8 +950,12 @@ class SimUI extends React.Component {
         </Grid>
         }
         <Box>
+        <div>You can find a tutorial <a href="https://microfluidics.stanford.edu/download/cafes_tutorial.pdf">here</a>.</div>
+        <br/>
+        </Box>
+        <Box>
         <div>Reference*:</div>
-        <div>Avaro, A.S.; Sun, Y.; Jiang, K.; Bahga, S.S.; Santiago, J.G. "Web-based open-source tool for isotachophoresis", in press, <i>Analytical Chemistry</i>, <b>2021</b>. </div>
+        <div>Avaro, A.S.; Sun, Y.; Jiang, K.; Bahga, S.S.; Santiago, J.G. "Web-based open-source tool for isotachophoresis", <i>Analytical Chemistry</i>, <b>2021</b>, 93, 47, 15768–15774. </div>
         <br/>
         <div>*If you use this tool as part of any published work, please cite this paper.</div>
         <br/>
