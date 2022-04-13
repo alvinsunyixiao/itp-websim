@@ -2,6 +2,7 @@
   "name": "itp-websim",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://web.stanford.edu/group/microfluidics/cafes",
   "dependencies": {
     "@material-ui/core": "^4.11.0",
     "@material-ui/icons": "^4.9.1",
