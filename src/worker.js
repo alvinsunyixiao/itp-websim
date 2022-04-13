@@ -11,10 +11,10 @@ let cafes_init = undefined;
 
 const initBackend = async () => {
   tf.enableProdMode();
-  setWasmPaths('/tfjs-wasm/');
+  setWasmPaths('/cafes/tfjs-wasm/');
   await tf.setBackend('wasm');
-  cafes_sim = await tf.loadGraphModel('/cafes-sim/model.json');
-  cafes_init = await tf.loadGraphModel('/cafes-init/model.json');
+  cafes_sim = await tf.loadGraphModel('/cafes/cafes-sim/model.json');
+  cafes_init = await tf.loadGraphModel('/cafes/cafes-init/model.json');
   postMessage({msg: 'init', backend: tf.getBackend()});
 };
 
